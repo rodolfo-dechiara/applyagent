@@ -17,7 +17,6 @@ from django.template.loader import render_to_string
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.utils.decorators import method_decorator
-from django.views.decorators.http import require_POST
 from django.views.generic import DetailView, FormView, TemplateView, UpdateView, View
 
 from agent.service import ApplicationPackage, GenerationError, generate_application_package
@@ -267,9 +266,9 @@ class ApplicationDetailView(ApplicationMixin, DetailView):
         return context
 
 
-@method_decorator(require_POST, name="dispatch")
 class ApplicationRegenerateView(ApplicationMixin, View):
-    """POST-only regenerate; HTMX gets the swapped package partial, others a redirect."""
+    """POST-only regenerate (GET is 405 via View.dispatch, after the login check);
+    HTMX gets the swapped package partial, others a redirect."""
 
     def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         application = get_object_or_404(self.get_queryset(), pk=kwargs["pk"])
@@ -301,9 +300,8 @@ class ApplicationEditView(ApplicationMixin, UpdateView):
         return super().form_valid(form)
 
 
-@method_decorator(require_POST, name="dispatch")
 class ApplicationStatusView(ApplicationMixin, View):
-    """POST-only status transitions, validated against the choices."""
+    """POST-only status transitions (GET is 405), validated against the choices."""
 
     def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         application = get_object_or_404(self.get_queryset(), pk=kwargs["pk"])

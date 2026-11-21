@@ -5,11 +5,34 @@ from typing import Any, ClassVar
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
+from django.core.validators import MaxLengthValidator
 
 from core.models import Application, JobPosting, Profile
 
 INPUT_CLASS = "w-full rounded border border-slate-300 bg-white p-2 text-sm"
 TEXTAREA_CLASS = INPUT_CLASS + " min-h-24"
+
+# Free-text inputs are length-capped at the form level (ASVS V5.2) so a paste
+# cannot store unbounded payloads.
+PROFILE_MAX_LENGTHS: dict[str, int] = {
+    "headline": 200,
+    "skills": 20_000,
+    "experience": 20_000,
+    "education": 20_000,
+    "links": 2_000,
+    "cv_text": 50_000,
+}
+JOB_DESCRIPTION_MAX_LENGTH = 50_000
+APPLICATION_TEXT_MAX_LENGTH = 20_000
+
+
+def _cap_lengths(form: forms.BaseForm, limits: dict[str, int]) -> None:
+    for name, max_length in limits.items():
+        field = form.fields[name]
+        if isinstance(field, forms.CharField):
+            field.max_length = max_length
+            field.validators.append(MaxLengthValidator(max_length))
+            field.widget.attrs["maxlength"] = str(max_length)
 
 
 class RegisterForm(UserCreationForm):
@@ -58,6 +81,10 @@ class ProfileForm(forms.ModelForm):
             "cv_text": forms.Textarea(attrs={"class": TEXTAREA_CLASS + " min-h-48"}),
         }
 
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        _cap_lengths(self, PROFILE_MAX_LENGTHS)
+
 
 class JobPostingForm(forms.ModelForm):
     class Meta:
@@ -70,6 +97,10 @@ class JobPostingForm(forms.ModelForm):
             "source_url": forms.URLInput(attrs={"class": INPUT_CLASS}),
         }
 
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        _cap_lengths(self, {"description": JOB_DESCRIPTION_MAX_LENGTH})
+
 
 class ApplicationEditForm(forms.ModelForm):
     """The human review pass over the agent-drafted package."""
@@ -81,3 +112,13 @@ class ApplicationEditForm(forms.ModelForm):
             "tailored_summary": forms.Textarea(attrs={"class": TEXTAREA_CLASS}),
             "cover_letter": forms.Textarea(attrs={"class": TEXTAREA_CLASS + " min-h-64"}),
         }
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        _cap_lengths(
+            self,
+            {
+                "tailored_summary": APPLICATION_TEXT_MAX_LENGTH,
+                "cover_letter": APPLICATION_TEXT_MAX_LENGTH,
+            },
+        )

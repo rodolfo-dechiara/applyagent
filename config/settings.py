@@ -139,3 +139,15 @@ if EMAIL_HOST:
 else:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "ApplyAgent <noreply@applyagent.local>")
+
+# Rate limiting (fixed window; login is additionally keyed per account).
+# The default cache is process-local: correct for one machine, move CACHES to a
+# shared backend if the app ever scales out.
+RATE_LIMIT_LOGIN_ATTEMPTS = int(os.environ.get("RATE_LIMIT_LOGIN_ATTEMPTS", "10"))
+RATE_LIMIT_LOGIN_WINDOW_SECONDS = int(os.environ.get("RATE_LIMIT_LOGIN_WINDOW_SECONDS", "900"))
+RATE_LIMIT_REGISTER_ATTEMPTS = int(os.environ.get("RATE_LIMIT_REGISTER_ATTEMPTS", "5"))
+RATE_LIMIT_REGISTER_WINDOW_SECONDS = int(
+    os.environ.get("RATE_LIMIT_REGISTER_WINDOW_SECONDS", "3600")
+)
+RATE_LIMIT_RESEND_ATTEMPTS = int(os.environ.get("RATE_LIMIT_RESEND_ATTEMPTS", "3"))
+RATE_LIMIT_RESEND_WINDOW_SECONDS = int(os.environ.get("RATE_LIMIT_RESEND_WINDOW_SECONDS", "3600"))

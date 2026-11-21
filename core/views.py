@@ -6,6 +6,7 @@ from typing import Any
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login
+from django.contrib.auth import views as auth_views
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.models import User
 from django.core.mail import send_mail
@@ -28,11 +29,9 @@ from core.forms import (
     ResendVerificationForm,
 )
 from core.models import EMAIL_VERIFICATION_TTL, Application, EmailVerification, Profile
+from core.ratelimit import rate_limited
+from core.security import client_ip
 from core.security import logger as security_logger
-
-
-def client_ip(request: HttpRequest) -> str:
-    return request.META.get("REMOTE_ADDR", "unknown")
 
 
 def send_verification_email(request: HttpRequest, user: User) -> EmailVerification:
@@ -69,6 +68,7 @@ def apply_package(application: Application, package: ApplicationPackage) -> None
     application.save()
 
 
+@method_decorator(rate_limited("register", 5, 3600), name="dispatch")
 class RegisterView(FormView):
     """Register, then require email verification before the account can log in.
 
@@ -103,6 +103,19 @@ class RegisterDoneView(TemplateView):
     template_name = "registration/register_done.html"
 
 
+@method_decorator(
+    rate_limited(
+        "login",
+        10,
+        900,
+        ident=lambda request: f"{client_ip(request)}:{request.POST.get('username', '')}",
+    ),
+    name="dispatch",
+)
+class RateLimitedLoginView(auth_views.LoginView):
+    """Django's login view with per-IP + per-account rate limiting (ASVS V2.2.1)."""
+
+
 class VerifyEmailView(View):
     """Visit the emailed link: activate the account, consume the token, log in."""
 
@@ -131,6 +144,7 @@ class VerifyEmailView(View):
         return redirect("core:dashboard")
 
 
+@method_decorator(rate_limited("resend", 3, 3600), name="dispatch")
 class ResendVerificationView(FormView):
     """Resend the verification link. The response never reveals whether the
     address is registered or already verified (no account enumeration)."""

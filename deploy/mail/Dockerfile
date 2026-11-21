@@ -5,10 +5,11 @@ FROM debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends postfix mailutils ca-certificates \
+    && apt-get install -y --no-install-recommends postfix mailutils ca-certificates python3 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY deploy/mail/main.cf /etc/postfix/main.cf
+COPY deploy/mail/dnsbridge.py /dnsbridge.py
 COPY deploy/mail/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 

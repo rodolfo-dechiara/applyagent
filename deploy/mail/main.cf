@@ -24,10 +24,7 @@ smtpd_client_connection_count_limit = 20
 # Outbound: opportunistic TLS, deliver straight to the recipient's MX.
 smtp_tls_security_level = may
 smtp_tls_note_starttls_offer = yes
-# Fly's resolver (fdaa::3) only answers via the system resolver (getaddrinfo),
-# not via raw DNS MX queries, and public DNS over UDP/TCP 53 is blocked.
-# "native" makes Postfix use getaddrinfo (A/AAAA, implicit-MX style).
-disable_dns_lookups = yes
+# MX lookups go through the local DoH bridge (see entrypoint.sh / dnsbridge.py).
 # Prefer IPv4 for outbound SMTP: Fly IPv6 egress on port 25 is unreliable.
 smtp_address_preference = ipv4
 message_size_limit = 10485760

@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+
+# Django
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+
+# Tooling
+.ruff_cache/
+.pyrefly/
+.pytest_cache/
+.mypy_cache/
+
+# Environment
+.env

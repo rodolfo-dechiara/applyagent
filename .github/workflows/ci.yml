@@ -42,3 +42,15 @@ jobs:
       - run: uv sync --locked
       - run: uv run python manage.py migrate
       - run: uv run python manage.py test
+
+  audit:
+    name: audit (pip-audit on locked runtime deps, OWASP A06)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv export --locked --no-dev --format requirements-txt --no-hashes -o requirements-lock.txt
+      - run: uvx pip-audit --requirement requirements-lock.txt

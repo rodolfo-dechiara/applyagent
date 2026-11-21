@@ -59,8 +59,32 @@ uv run pyrefly check                  # type check
 uvx pre-commit run --all-files        # hooks (ruff, ruff-format, pyrefly)
 ```
 
-CI (`.github/workflows/ci.yml`) runs lint, types and tests on pushes and
-PRs to `main` via the official `astral-sh/setup-uv` action.
+CI (`.github/workflows/ci.yml`) runs lint, types, tests and a `pip-audit`
+dependency scan on pushes and PRs to `main` via the official
+`astral-sh/setup-uv` action.
+
+## Security
+
+See [SECURITY.md](SECURITY.md) and the full audit in
+[docs/security-audit.md](docs/security-audit.md) (OWASP Top 10 2021 +
+OWASP ASVS 5.0, targeting Level 1). Baseline:
+
+- Registration requires **email verification** (single-use token, 24 h TTL)
+  before login; the resend endpoint never reveals whether an address is
+  registered. Emails are printed to stdout unless `EMAIL_HOST*` is set.
+- Login, registration and verification-resend are **rate limited** (HTTP 429).
+- Passwords are validated (length / common / numeric / similarity); reset
+  uses signed single-use links; change requires the current password; logout
+  is POST-only.
+- Sessions: 1 h sliding, HttpOnly, SameSite=Lax, Secure in production.
+- CSP + `Permissions-Policy` + `Cross-Origin-Resource-Policy` on every
+  non-admin response; HSTS, SSL redirect and Secure cookies when
+  `DEBUG=False`; production fails fast without `DJANGO_SECRET_KEY` /
+  `DJANGO_ALLOWED_HOSTS`.
+- All application data is owner-scoped (cross-user access is a 404); status
+  changes are POST-only and validated; all output is autoescaped (tested).
+- Security events are logged to the `core.security` logger (never passwords
+  or tokens) and shipped to `fly logs` in production.
 
 ## Layout
 

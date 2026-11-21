@@ -76,9 +76,11 @@ L2/L3 items deliberately out of scope for v0 (see residual risks).
 1. **Rate limiting uses Django's local-memory cache** — correct for the single-machine
    Fly deployment; if the app ever scales to multiple machines, move `CACHES` to a
    shared backend (Redis) or the limiter becomes per-machine.
-2. **Email delivery:** without `EMAIL_HOST*` the console backend prints emails to
-   stdout (visible in `fly logs`) — fine for demo, not for real users. Set SMTP env
-   vars for production delivery.
+2. **Email delivery:** solved for v0 with a self-hosted relay-only Postfix on Fly
+   (`applyagent-mail`, no public IP, reachable only via 6PN; see README). Without
+   `EMAIL_HOST` the console backend prints emails to stdout instead. Caveat: no
+   SPF/DKIM is possible on a `fly.dev` subdomain, so first mails may land in spam —
+   attach a custom domain with SPF/DKIM/DMARC for production-grade delivery.
 3. **CSP contains `'unsafe-eval'` in `script-src`** because the mandated CDN stack
    (Alpine.js 3 — no CSP build published for 3.14.x — and the Tailwind Play CDN)
    evaluates code in the browser. Mitigations in place: `default-src 'self'`,

@@ -99,25 +99,59 @@ core/      Profile / JobPosting / Application, views, forms, templates
 
 ## Deploy on Fly.io
 
-`Dockerfile`, `.dockerignore` and `fly.toml` are committed. The image keeps
-the runtime dependency Django-only (gunicorn is installed into the venv at
-image build time). SQLite lives on a Fly volume (`APPLYAGENT_DB=/data/db.sqlite3`).
+Two apps in the `personal` org, both `shared-cpu-1x` / `256MB` (within the free
+tier), region `fra`:
+
+- **`applyagents`** — the web app, https://applyagents.fly.dev (SQLite on a 1 GB
+  `data` volume, migrations in `entrypoint.sh`).
+- **`applyagent-mail`** — a relay-only Postfix (`deploy/mail/`, config
+  `fly.mail.toml`) with **no public IP**: reachable only from the web app over
+  Fly's private network at `applyagent-mail.internal:25`, so it cannot be
+  abused as an open relay. Outbound mail is delivered directly to recipient
+  MXes on port 25; MX lookups go through a tiny stdlib DNS-over-HTTPS bridge
+  (`deploy/mail/dnsbridge.py`) because Fly's built-in resolver does not return
+  MX records and public DNS is blocked from Fly machines.
 
 ```bash
-fly auth login                                        # browser sign-up/login
-fly apps create applyagent                            # if the name is taken, pick another
-                                                      # and update `app` + the DJANGO_* URLs in fly.toml
-fly volumes create data --size 1 --region fra         # persistent SQLite
-fly secrets set DJANGO_SECRET_KEY="$(openssl rand -hex 32)"
-fly secrets set MISTRAL_API_KEY=...                   # optional; without it the app runs in demo mode
-fly deploy                                            # builds the image; entrypoint.sh runs migrate, then gunicorn
+fly deploy --local-only --yes -a applyagents                 # web app
+fly deploy --config fly.mail.toml --local-only --yes         # mail relay
+fly logs -a applyagent-mail                                  # see status=sent lines
 ```
 
-The app then answers on `https://applyagent.fly.dev` (HTTPS is forced by Fly;
+The web app is pointed at the relay via non-secret env in `fly.toml`
+(`EMAIL_HOST=applyagent-mail.internal`, port 25, no TLS/auth inside the 6PN).
+Without `EMAIL_HOST`, emails fall back to the console backend (printed to
+`fly logs`) — useful for local dev and tests.
+
+**Deliverability caveat:** the sender IP is Fly's shared egress and the
+`From` domain is `applyagents.fly.dev` (no SPF/DKIM possible on a fly.dev
+subdomain), so first mails to Gmail/Outlook/Tuta may land in spam. For
+production-grade delivery, attach a custom domain to the Fly app and publish
+SPF/DKIM/DMARC for it (and set `DEFAULT_FROM_EMAIL` accordingly), or relay via
+a provider's submission port instead.
+
+`Dockerfile`, `.dockerignore`, `fly.toml` and `fly.mail.toml` are committed.
+The web image keeps the runtime dependency Django-only (gunicorn is installed
+into the venv at image build time). SQLite lives on a Fly volume
+(`APPLYAGENT_DB=/data/db.sqlite3`).
+
+```bash
+fly auth login                                              # browser sign-up/login
+fly apps create applyagents                                 # app name; update `app` in fly.toml if taken
+fly volumes create data --size 1 --region fra -a applyagents   # persistent SQLite
+fly secrets set -a applyagents DJANGO_SECRET_KEY="$(openssl rand -hex 32)"
+fly secrets set -a applyagents MISTRAL_API_KEY=...         # optional; without it the app runs in demo mode
+fly deploy --local-only -a applyagents                      # web app (entrypoint.sh migrates, then gunicorn)
+fly deploy --config fly.mail.toml --local-only              # mail relay
+```
+
+The app answers on `https://applyagents.fly.dev` (HTTPS forced by Fly;
 `DJANGO_CSRF_TRUSTED_ORIGINS` / `SECURE_PROXY_SSL_HEADER` are wired in
-`config/settings.py` for that). Useful env knobs on any host: `DEBUG`,
+`config/settings.py`). Useful env knobs on any host: `DEBUG`,
 `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS`, `APPLYAGENT_DB`,
-`MISTRAL_API_KEY`, `MISTRAL_MODEL`, `MISTRAL_TIMEOUT`, `DJANGO_SECRET_KEY`.
+`MISTRAL_API_KEY`, `MISTRAL_MODEL`, `MISTRAL_TIMEOUT`, `DJANGO_SECRET_KEY`,
+`EMAIL_HOST`/`EMAIL_PORT`/`EMAIL_USE_TLS`/`EMAIL_HOST_USER`/`EMAIL_HOST_PASSWORD`
+/`DEFAULT_FROM_EMAIL`, and the `RATE_LIMIT_*` knobs.
 
 ## v1 roadmap (recruiter side)
 

@@ -13,13 +13,15 @@ from core.views import (
     JobBoardDetailView,
     JobBoardView,
     JobCreateView,
+    LandingView,
     ProfileView,
 )
 
 app_name = "core"
 
 urlpatterns: list[URLPattern] = [
-    path("", DashboardView.as_view(), name="dashboard"),
+    path("", LandingView.as_view(), name="landing"),
+    path("dashboard/", DashboardView.as_view(), name="dashboard"),
     path("profile/", ProfileView.as_view(), name="profile"),
     # Public jobs board (anonymous access intended; <int:pk> never matches "new").
     path("jobs/", JobBoardView.as_view(), name="job_board"),

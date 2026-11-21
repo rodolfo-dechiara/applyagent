@@ -216,6 +216,22 @@ class ResendVerificationView(FormView):
         return super().form_valid(form)
 
 
+class LandingView(TemplateView):
+    """Public marketing landing page at /. Shows the latest public board
+    postings (seeding demo postings first when the demo flag is on)."""
+
+    template_name = "core/landing.html"
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        ensure_demo_jobs()  # no-op unless settings.DEMO_JOBS_ENABLED
+        context["latest_postings"] = JobPosting.objects.filter(is_public=True).order_by(
+            "-created_at"
+        )[:3]
+        context["demo_jobs_enabled"] = settings.DEMO_JOBS_ENABLED
+        return context
+
+
 class DashboardView(LoginRequiredMixin, TemplateView):
     """The applications list, with an empty state and a profile nudge."""
 

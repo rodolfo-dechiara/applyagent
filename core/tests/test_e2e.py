@@ -53,7 +53,7 @@ def fill_profile_and_paste_job(page: Page, base_url: str) -> None:
     page.fill("textarea[name='education']", "MSc CS")
     page.fill("textarea[name='links']", "https://example.com/alice")
     page.fill("textarea[name='cv_text']", "Alice CV body")
-    submit_and_wait(page, rf"^{re.escape(base_url)}/$")
+    submit_and_wait(page, rf"^{re.escape(base_url)}/dashboard/$")
 
     page.goto(f"{base_url}/jobs/new/", wait_until="domcontentloaded")
     page.fill("input[name='title']", "Django developer")
@@ -75,6 +75,16 @@ class EndToEndTests(LiveServerTestCase):
             browser = playwright.chromium.launch()
             page = browser.new_page(viewport=MOBILE)
             base = self.live_server_url
+
+            # Landing page is public: brand + jobs CTA, no overflow on mobile;
+            # the Jobs link is visible in the hamburger panel.
+            page.goto(f"{base}/", wait_until="domcontentloaded")
+            page.wait_for_selector("text=You're Hired")
+            page.locator("main >> text=Browse the job board").first.wait_for(state="visible")
+            assert_no_horizontal_overflow(page)
+            page.click("button[aria-label='Toggle navigation menu']")
+            page.locator("nav >> text=Jobs").last.wait_for(state="visible")
+            assert_no_horizontal_overflow(page)
 
             # Login page: no overflow, hamburger visible, desktop links hidden.
             page.goto(f"{base}/accounts/login/", wait_until="domcontentloaded")
@@ -123,7 +133,7 @@ class EndToEndTests(LiveServerTestCase):
             with page.expect_navigation(wait_until="domcontentloaded"):
                 page.click("text=Delete")
             assert re.search(r"/delete/$", page.url), page.url
-            submit_and_wait(page, f"{base}/")
+            submit_and_wait(page, f"{base}/dashboard/")
             page.wait_for_selector("text=No applications yet")
             assert_no_horizontal_overflow(page)
 
@@ -158,6 +168,7 @@ class EndToEndTests(LiveServerTestCase):
             page = browser.new_page(viewport={"width": 360, "height": 740})
             base = self.live_server_url
             for path in [
+                "/",
                 "/accounts/login/",
                 "/accounts/register/",
                 "/accounts/verify/resend/",

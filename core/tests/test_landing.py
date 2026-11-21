@@ -65,6 +65,14 @@ class LandingPageTests(TestCase):
         response = self.client.get("/")
         self.assertEqual(response.status_code, 200)
 
+    def test_purple_cta_card_sits_directly_below_the_brand_heading(self) -> None:
+        html = self.client.get("/").content.decode()
+        cta = html.index("Ready when you are.")
+        heading = html.index("text-4xl")  # the hero h1
+        tagline = html.index("Paste a job posting.")
+        self.assertLess(heading, cta)
+        self.assertLess(cta, tagline)  # card is above the tagline, not at the bottom
+
     def test_dashboard_moved_to_dashboard_path(self) -> None:
         self.assertEqual(reverse("core:dashboard"), "/dashboard/")
         response = self.client.get(reverse("core:dashboard"))

@@ -80,7 +80,7 @@ class EndToEndTests(LiveServerTestCase):
             # the Jobs link is visible in the hamburger panel.
             page.goto(f"{base}/", wait_until="domcontentloaded")
             page.wait_for_selector("text=You're Hired")
-            page.locator("main >> text=Browse the job board").first.wait_for(state="visible")
+            page.locator("main >> text=Browse jobs").first.wait_for(state="visible")
             assert_no_horizontal_overflow(page)
             page.click("button[aria-label='Toggle navigation menu']")
             page.locator("nav >> text=Jobs").last.wait_for(state="visible")

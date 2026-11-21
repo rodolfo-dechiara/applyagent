@@ -93,12 +93,22 @@ class ProfileForm(forms.ModelForm):
 class JobPostingForm(forms.ModelForm):
     class Meta:
         model = JobPosting
-        fields: ClassVar[list[str]] = ["title", "company", "description", "source_url"]
+        fields: ClassVar[list[str]] = ["title", "company", "description", "source_url", "is_public"]
         widgets: ClassVar[dict[str, forms.Widget]] = {
             "title": forms.TextInput(attrs={"class": INPUT_CLASS}),
             "company": forms.TextInput(attrs={"class": INPUT_CLASS}),
             "description": forms.Textarea(attrs={"class": TEXTAREA_CLASS + " min-h-48"}),
             "source_url": forms.URLInput(attrs={"class": INPUT_CLASS}),
+            "is_public": forms.CheckboxInput(attrs={"class": "h-4 w-4 accent-indigo-600"}),
+        }
+        labels: ClassVar[dict[str, str]] = {
+            "is_public": "List this posting on the public job board",
+        }
+        help_texts: ClassVar[dict[str, str]] = {
+            "is_public": (
+                "Anyone can then see it on /jobs/ and build their own application "
+                "from it. Off by default — your posting stays private."
+            ),
         }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:

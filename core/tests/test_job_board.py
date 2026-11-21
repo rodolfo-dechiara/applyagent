@@ -279,3 +279,55 @@ class JobBoardApplyTests(TestCase):
     def test_detail_page_invites_anonymous_to_log_in(self) -> None:
         response = self.client.get(reverse("core:job_board_detail", args=[self.public_job.pk]))
         self.assertContains(response, reverse("login"))
+
+
+@override_settings(MISTRAL_API_KEY=None)
+class PostingVisibilityFormTests(TestCase):
+    """Cycle 6: the paste-a-job form can opt the posting into the public board,
+    and the dashboard shows which of your postings are public."""
+
+    def setUp(self) -> None:
+        self.user = User.objects.create_user(username="alice", password=PASSWORD)
+        self.client.force_login(self.user)
+
+    def paste(self, **extra: str):
+        data = {
+            "title": "Django developer",
+            "company": "Acme Corp",
+            "description": "Build APIs with Django.",
+            "source_url": "https://jobs.example.com/1",
+        }
+        data.update(extra)
+        return self.client.post(reverse("core:job_new"), data)
+
+    def test_paste_form_has_is_public_checkbox(self) -> None:
+        response = self.client.get(reverse("core:job_new"))
+        self.assertContains(response, 'name="is_public"')
+        self.assertContains(response, "job board")
+
+    def test_pasting_with_checkbox_makes_posting_public_on_board(self) -> None:
+        response = self.paste(is_public="on")
+        self.assertEqual(response.status_code, 302)
+        job = JobPosting.objects.get(owner=self.user)
+        self.assertTrue(job.is_public)
+        board = self.client.get(reverse("core:job_board"))
+        self.assertContains(board, "Django developer")
+
+    def test_pasting_without_checkbox_stays_private(self) -> None:
+        self.paste()
+        job = JobPosting.objects.get(owner=self.user)
+        self.assertFalse(job.is_public)
+        board = self.client.get(reverse("core:job_board"))
+        self.assertNotContains(board, "Django developer")
+
+    def test_dashboard_marks_public_postings(self) -> None:
+        job = JobPosting.objects.create(
+            owner=self.user,
+            title="Django developer",
+            company="Acme Corp",
+            description="Build APIs.",
+            is_public=True,
+        )
+        Application.objects.create(job=job, user=self.user)
+        response = self.client.get(reverse("core:dashboard"))
+        self.assertContains(response, "Public")

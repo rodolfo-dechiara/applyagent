@@ -17,11 +17,22 @@
   >
     {% csrf_token %}
     {% for field in form %}
-      <div>
-        <label class="mb-1 block text-sm font-semibold text-slate-700" for="{{ field.id_for_label }}">{{ field.label }}</label>
-        {{ field }}
-        {% for error in field.errors %}<p class="mt-1 text-sm text-red-600">{{ error }}</p>{% endfor %}
-      </div>
+      {% if field.field.widget.input_type == "checkbox" %}
+        <div class="flex items-start gap-2">
+          {{ field }}
+          <div>
+            <label class="text-sm font-semibold text-slate-700" for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {% if field.help_text %}<p class="text-xs text-slate-500">{{ field.help_text }}</p>{% endif %}
+            {% for error in field.errors %}<p class="mt-1 text-sm text-red-600">{{ error }}</p>{% endfor %}
+          </div>
+        </div>
+      {% else %}
+        <div>
+          <label class="mb-1 block text-sm font-semibold text-slate-700" for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
+          {% for error in field.errors %}<p class="mt-1 text-sm text-red-600">{{ error }}</p>{% endfor %}
+        </div>
+      {% endif %}
     {% endfor %}
     <button
       type="submit"

@@ -1,0 +1,22 @@
+# Local hooks only: ruff, ruff-format and pyrefly run through uv.
+# Activate with: uvx pre-commit install
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: uv run ruff check --fix --exit-non-zero-on-fix
+        language: system
+        types: [python]
+        pass_filenames: true
+      - id: ruff-format
+        name: ruff format
+        entry: uv run ruff format
+        language: system
+        types: [python]
+        pass_filenames: true
+      - id: pyrefly
+        name: pyrefly check
+        entry: uv run pyrefly check
+        language: system
+        pass_filenames: false

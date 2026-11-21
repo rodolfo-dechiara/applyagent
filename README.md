@@ -73,6 +73,28 @@ agent/     the whole provider surface + package generation
 core/      Profile / JobPosting / Application, views, forms, templates
 ```
 
+## Deploy on Fly.io
+
+`Dockerfile`, `.dockerignore` and `fly.toml` are committed. The image keeps
+the runtime dependency Django-only (gunicorn is installed into the venv at
+image build time). SQLite lives on a Fly volume (`APPLYAGENT_DB=/data/db.sqlite3`).
+
+```bash
+fly auth login                                        # browser sign-up/login
+fly apps create applyagent                            # if the name is taken, pick another
+                                                      # and update `app` + the DJANGO_* URLs in fly.toml
+fly volumes create data --size 1 --region fra         # persistent SQLite
+fly secrets set DJANGO_SECRET_KEY="$(openssl rand -hex 32)"
+fly secrets set MISTRAL_API_KEY=...                   # optional; without it the app runs in demo mode
+fly deploy                                            # builds the image, runs `manage.py migrate` as release_command
+```
+
+The app then answers on `https://applyagent.fly.dev` (HTTPS is forced by Fly;
+`DJANGO_CSRF_TRUSTED_ORIGINS` / `SECURE_PROXY_SSL_HEADER` are wired in
+`config/settings.py` for that). Useful env knobs on any host: `DEBUG`,
+`DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS`, `APPLYAGENT_DB`,
+`MISTRAL_API_KEY`, `MISTRAL_MODEL`, `MISTRAL_TIMEOUT`, `DJANGO_SECRET_KEY`.
+
 ## v1 roadmap (recruiter side)
 
 - Recruiter accounts and a recruiter-side dashboard of incoming

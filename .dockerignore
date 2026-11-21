@@ -1,0 +1,11 @@
+.git
+.venv
+.env
+db.sqlite3
+__pycache__
+*.pyc
+.ruff_cache
+.pyrefly
+.pytest_cache
+.mypy_cache
+.github

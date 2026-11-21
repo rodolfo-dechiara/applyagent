@@ -41,7 +41,21 @@ jobs:
           enable-cache: true
       - run: uv sync --locked
       - run: uv run python manage.py migrate
-      - run: uv run python manage.py test
+      # E2E (Playwright/Chromium) runs in its own job below.
+      - run: uv run python manage.py test --exclude-tag e2e
+
+  e2e:
+    name: e2e (Playwright Chromium, demo mode, mobile + desktop viewports)
+    runs-on: ubuntu-latest
+    # Deliberately no MISTRAL_API_KEY here: the whole suite runs in demo mode.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run playwright install --with-deps chromium
+      - run: uv run python manage.py test core.tests.test_e2e
 
   audit:
     name: audit (pip-audit on locked runtime deps, OWASP A06)

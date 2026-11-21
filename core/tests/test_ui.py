@@ -51,6 +51,22 @@ class ModernUiTests(TestCase):
         self.assertLess(html.index(logo_marker), html.index(login_link))
         self.assertLess(html.index(login_link), html.index(register_link))
 
+    def test_mobile_navigation_hamburger_present(self) -> None:
+        response = self.client.get(reverse("login"))
+        html = response.content.decode()
+        # Alpine-driven mobile menu, hidden on md+ screens, desktop links hidden below md.
+        self.assertIn('x-data="{ open: false }"', html)
+        self.assertIn('@click="open = !open"', html)
+        self.assertIn("x-cloak", html)
+        self.assertIn("md:hidden", html)
+        self.assertIn("md:flex", html)
+        self.assertIn("[x-cloak]", html)  # CSS guard so the panel never flashes
+
+    def test_headings_are_mobile_first(self) -> None:
+        register_and_verify(self.client, username="alice")
+        response = self.client.get(reverse("core:dashboard"))
+        self.assertContains(response, "text-2xl font-extrabold sm:text-3xl")
+
     def test_application_detail_uses_gradient_title(self) -> None:
         user = User.objects.create_user(username="alice", password=PASSWORD)
         from core.models import Application, JobPosting

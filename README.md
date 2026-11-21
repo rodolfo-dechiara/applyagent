@@ -52,15 +52,26 @@ goes into `red_flags`, never into the cover letter.
 ## Development
 
 ```bash
-uv run python manage.py test          # full suite (demo mode)
+uv run python manage.py test                     # full suite incl. e2e (demo mode)
+uv run python manage.py test --exclude-tag e2e   # unit/integration only
+uv run python manage.py test core.tests.test_e2e # e2e only (needs the browser:
+                                                 #   uv run playwright install --with-deps chromium)
 uv run ruff check .                   # lint
 uv run ruff format --check .          # format check
 uv run pyrefly check                  # type check
 uvx pre-commit run --all-files        # hooks (ruff, ruff-format, pyrefly)
 ```
 
-CI (`.github/workflows/ci.yml`) runs lint, types, tests and a `pip-audit`
-dependency scan on pushes and PRs to `main` via the official
+E2E tests (`core/tests/test_e2e.py`) drive real Chromium via Playwright
+(pip-installed dev dependency — no node/npm) against a live Django server:
+the full register → verify-email → profile → paste-job → HTMX-regenerate →
+edit → status → delete loop on a 390px mobile viewport (asserting no
+horizontal overflow and a working hamburger menu) and a 1280px desktop
+viewport, plus overflow checks on all auth pages at 360px.
+
+CI (`.github/workflows/ci.yml`) runs lint, types, tests (`--exclude-tag e2e`),
+a dedicated `e2e` job (installs Chromium, runs the e2e suite), and a
+`pip-audit` dependency scan on pushes and PRs to `main` via the official
 `astral-sh/setup-uv` action.
 
 ## Security

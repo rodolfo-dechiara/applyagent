@@ -22,5 +22,7 @@
   </form>
   <p class="mt-4 text-sm text-slate-500">
     No account yet? <a href="{% url 'register' %}" class="underline">Register</a>
+    · <a href="{% url 'password_reset' %}" class="underline">Forgot password?</a>
+    · <a href="{% url 'resend_verification' %}" class="underline">Resend verification link</a>
   </p>
 {% endblock %}

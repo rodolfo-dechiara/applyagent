@@ -11,6 +11,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from core.models import Application, JobPosting, Profile
+from core.tests.utils import register_and_verify
 
 PASSWORD = "Str0ng!Pass99"
 
@@ -18,13 +19,10 @@ PASSWORD = "Str0ng!Pass99"
 @override_settings(MISTRAL_API_KEY=None)
 class FullLoopTests(TestCase):
     def test_full_loop_in_demo_mode(self) -> None:
-        # 1. Register.
-        response = self.client.post(
-            reverse("register"),
-            {"username": "alice", "password1": PASSWORD, "password2": PASSWORD},
-        )
+        # 1. Register, then verify the emailed link (logs the user in).
+        response = register_and_verify(self.client, username="alice")
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(User.objects.filter(username="alice").exists())
+        self.assertTrue(User.objects.filter(username="alice", is_active=True).exists())
 
         # 2. Save the master profile.
         response = self.client.post(

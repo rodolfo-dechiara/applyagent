@@ -13,14 +13,29 @@ TEXTAREA_CLASS = INPUT_CLASS + " min-h-24"
 
 
 class RegisterForm(UserCreationForm):
+    """Registration requires an email: the account is unusable until verified."""
+
+    email = forms.EmailField(required=True)
+
     class Meta:
         model = User
-        fields: ClassVar[list[str]] = ["username"]
+        fields: ClassVar[list[str]] = ["username", "email"]
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
             field.widget.attrs["class"] = INPUT_CLASS
+
+
+class ResendVerificationForm(forms.Form):
+    """Ask for a new verification link. The response is identical whether or not
+    the address is registered, so the endpoint cannot be used for enumeration."""
+
+    email = forms.EmailField(required=True)
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.fields["email"].widget.attrs["class"] = INPUT_CLASS
 
 
 class ProfileForm(forms.ModelForm):

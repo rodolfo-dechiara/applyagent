@@ -1,10 +1,20 @@
 """Core data model: candidate Profile, pasted JobPosting, generated Application."""
 
+import secrets
+from datetime import timedelta
 from typing import ClassVar
 
 from django.conf import settings
-from django.core.validators import MaxValueValidator, MinValueValidator
+from django.contrib.auth.models import User
+from django.core.validators import MaxValueValidator, MinValueValidator, URLValidator
 from django.db import models
+from django.utils import timezone
+
+# Only these schemes are accepted for a pasted source URL; the value is rendered
+# as a link, so javascript:/data: must never get through.
+HTTP_URL_VALIDATOR = URLValidator(schemes=["http", "https"])
+
+EMAIL_VERIFICATION_TTL = timedelta(hours=24)
 
 
 class Profile(models.Model):
@@ -34,7 +44,7 @@ class JobPosting(models.Model):
     title = models.CharField(max_length=300)
     company = models.CharField(max_length=200, blank=True)
     description = models.TextField()
-    source_url = models.URLField(blank=True)
+    source_url = models.URLField(blank=True, validators=[HTTP_URL_VALIDATOR])
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self) -> str:
@@ -90,3 +100,35 @@ class Application(models.Model):
 
     def __str__(self) -> str:
         return f"Application for {self.job} ({self.status})"
+
+
+class EmailVerification(models.Model):
+    """Single-use, expiring token proving ownership of the account email.
+
+    Accounts are created with is_active=False and can only log in after the
+    token in the emailed link is visited (ASVS V2.1).
+    """
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="email_verification"
+    )
+    token = models.CharField(max_length=64, unique=True)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering: ClassVar[list[str]] = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"EmailVerification for {self.user.username}"
+
+    @property
+    def is_expired(self) -> bool:
+        return timezone.now() > self.created_at + EMAIL_VERIFICATION_TTL
+
+    @classmethod
+    def create_for(cls, user: User) -> "EmailVerification":
+        """Create (or rotate, on resend) the verification token for a user."""
+        verification, _created = cls.objects.update_or_create(
+            user=user, defaults={"token": secrets.token_urlsafe(32)}
+        )
+        return verification

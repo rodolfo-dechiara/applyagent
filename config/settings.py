@@ -125,3 +125,17 @@ LOGOUT_REDIRECT_URL = "login"
 MISTRAL_API_KEY = os.environ.get("MISTRAL_API_KEY") or None
 MISTRAL_MODEL = os.environ.get("MISTRAL_MODEL", "mistral-small-latest")
 MISTRAL_TIMEOUT = float(os.environ.get("MISTRAL_TIMEOUT", "60"))
+
+# Outbound email (verification links, password reset). When EMAIL_HOST is set we
+# use Django's stdlib SMTP backend; otherwise emails are printed to stdout
+# (console backend) — visible in runserver output and in `fly logs`.
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
+if EMAIL_HOST:
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+    EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+    EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+    EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+    EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "true").lower() in ("1", "true", "yes")
+else:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "ApplyAgent <noreply@applyagent.local>")

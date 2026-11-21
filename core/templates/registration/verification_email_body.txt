@@ -1,0 +1,7 @@
+Hi {{ user.username }},
+
+Confirm your ApplyAgent account by opening this link (valid for {{ ttl_hours }} hours, single use):
+
+{{ url }}
+
+If you did not create an account, you can ignore this email.

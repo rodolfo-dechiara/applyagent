@@ -7,18 +7,52 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.models import User
+from django.core.mail import send_mail
 from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse_lazy
+from django.template.loader import render_to_string
+from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.http import require_POST
 from django.views.generic import DetailView, FormView, TemplateView, UpdateView, View
 
 from agent.service import ApplicationPackage, GenerationError, generate_application_package
-from core.forms import ApplicationEditForm, JobPostingForm, ProfileForm, RegisterForm
-from core.models import Application, Profile
+from core.forms import (
+    ApplicationEditForm,
+    JobPostingForm,
+    ProfileForm,
+    RegisterForm,
+    ResendVerificationForm,
+)
+from core.models import EMAIL_VERIFICATION_TTL, Application, EmailVerification, Profile
+from core.security import logger as security_logger
+
+
+def client_ip(request: HttpRequest) -> str:
+    return request.META.get("REMOTE_ADDR", "unknown")
+
+
+def send_verification_email(request: HttpRequest, user: User) -> EmailVerification:
+    """Create/rotate the token and email the verification link to the user."""
+    verification = EmailVerification.create_for(user)
+    url = request.build_absolute_uri(reverse("verify_email", args=[verification.token]))
+    subject = render_to_string(
+        "registration/verification_email_subject.txt", {"user": user}
+    ).strip()
+    body = render_to_string(
+        "registration/verification_email_body.txt",
+        {
+            "user": user,
+            "url": url,
+            "ttl_hours": int(EMAIL_VERIFICATION_TTL.total_seconds() // 3600),
+        },
+    )
+    send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, [user.email])
+    security_logger.info("verification_email_sent user=%s ip=%s", user.username, client_ip(request))
+    return verification
 
 
 def apply_package(application: Application, package: ApplicationPackage) -> None:
@@ -36,15 +70,87 @@ def apply_package(application: Application, package: ApplicationPackage) -> None
 
 
 class RegisterView(FormView):
-    """Register with Django's auth machinery, then log the new user in."""
+    """Register, then require email verification before the account can log in.
+
+    The account is created inactive (ASVS V2.1); a single-use, expiring token
+    is emailed and the candidate is sent to a "check your inbox" page instead
+    of being logged in.
+    """
 
     template_name = "registration/register.html"
     form_class = RegisterForm
-    success_url = reverse_lazy("core:dashboard")
+    success_url = reverse_lazy("register_done")
 
     def form_valid(self, form: RegisterForm) -> HttpResponse:
-        user = form.save()
-        login(self.request, user)
+        user = form.save(commit=False)
+        user.is_active = False
+        user.save()
+        send_verification_email(self.request, user)
+        security_logger.info(
+            "register user=%s ip=%s (unverified)", user.username, client_ip(self.request)
+        )
+        messages.info(
+            self.request,
+            "Account created — we sent a verification link to your email. "
+            "You can log in once you click it.",
+        )
+        return super().form_valid(form)
+
+
+class RegisterDoneView(TemplateView):
+    """Neutral 'check your inbox' page; reveals nothing about any address."""
+
+    template_name = "registration/register_done.html"
+
+
+class VerifyEmailView(View):
+    """Visit the emailed link: activate the account, consume the token, log in."""
+
+    def get(self, request: HttpRequest, token: str, *args: Any, **kwargs: Any) -> HttpResponse:
+        verification = EmailVerification.objects.filter(token=token).select_related("user").first()
+        if verification is None:
+            return HttpResponse(status=404)
+        user = verification.user
+        if verification.is_expired:
+            verification.delete()
+            security_logger.info(
+                "verify_expired_token user=%s ip=%s", user.username, client_ip(request)
+            )
+            messages.error(
+                request,
+                "That verification link has expired — request a new one from the login page.",
+            )
+            return redirect("resend_verification")
+        user.is_active = True
+        user.save(update_fields=["is_active"])
+        verification.delete()
+        user.backend = "django.contrib.auth.backends.ModelBackend"
+        login(request, user)
+        security_logger.info("email_verified user=%s ip=%s", user.username, client_ip(request))
+        messages.success(request, "Email verified — welcome to ApplyAgent!")
+        return redirect("core:dashboard")
+
+
+class ResendVerificationView(FormView):
+    """Resend the verification link. The response never reveals whether the
+    address is registered or already verified (no account enumeration)."""
+
+    template_name = "registration/resend_verification.html"
+    form_class = ResendVerificationForm
+    success_url = reverse_lazy("register_done")
+
+    def form_valid(self, form: ResendVerificationForm) -> HttpResponse:
+        email = form.cleaned_data["email"]
+        user = User.objects.filter(email__iexact=email, is_active=False).first()
+        if user is not None:
+            send_verification_email(self.request, user)
+        else:
+            security_logger.info("verification_resend_noop ip=%s", client_ip(self.request))
+        messages.info(
+            self.request,
+            "If that address is registered and not yet verified, we've sent a new "
+            "verification link.",
+        )
         return super().form_valid(form)
 
 

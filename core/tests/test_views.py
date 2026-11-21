@@ -1,12 +1,12 @@
 """View tests for the core app — written before the views exist (TDD red)."""
 
 from django.contrib.auth.models import User
+from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from core.models import Application, JobPosting, Profile
-
-PASSWORD = "Str0ng!Pass99"
+from core.tests.utils import PASSWORD, register, verify_latest
 
 
 class ViewTestCase(TestCase):
@@ -88,22 +88,22 @@ class DashboardTests(ViewTestCase):
 
 
 class RegisterAndLoginTests(TestCase):
+    def setUp(self) -> None:
+        cache.clear()  # rate-limit buckets must not leak between tests
+
     def test_register_page_renders(self) -> None:
         response = self.client.get(reverse("register"))
         self.assertEqual(response.status_code, 200)
 
-    def test_register_creates_user_logs_in_and_redirects_to_dashboard(self) -> None:
-        response = self.client.post(
-            reverse("register"),
-            {
-                "username": "newbie",
-                "password1": PASSWORD,
-                "password2": PASSWORD,
-            },
-        )
+    def test_register_then_verify_logs_in_and_redirects_to_dashboard(self) -> None:
+        response = register(self.client, username="newbie")
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], reverse("register_done"))
+        response = verify_latest(self.client)
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response["Location"], reverse("core:dashboard"))
         user = User.objects.get(username="newbie")
+        self.assertTrue(user.is_active)
         self.assertEqual(int(self.client.session["_auth_user_id"]), user.pk)
 
     def test_register_rejects_mismatched_passwords(self) -> None:

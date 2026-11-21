@@ -1,0 +1,6 @@
+# Clients considered internal (their mail gets DKIM-signed):
+# localhost and Fly's private ranges (container 172.16.0.0/12 + 6PN fd00::/8).
+127.0.0.1
+::1
+172.16.0.0/12
+fd00::/8

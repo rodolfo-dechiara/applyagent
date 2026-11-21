@@ -133,13 +133,17 @@ tier), region `fra`:
 
 - **`applyagents`** — the web app, https://applyagents.fly.dev (SQLite on a 1 GB
   `data` volume, migrations in `entrypoint.sh`).
-- **`applyagent-mail`** — a relay-only Postfix (`deploy/mail/`, config
-  `fly.mail.toml`) with **no public IP**: reachable only from the web app over
-  Fly's private network at `applyagent-mail.internal:25`, so it cannot be
-  abused as an open relay. Outbound mail is delivered directly to recipient
-  MXes on port 25; MX lookups go through a tiny stdlib DNS-over-HTTPS bridge
-  (`deploy/mail/dnsbridge.py`) because Fly's built-in resolver does not return
-  MX records and public DNS is blocked from Fly machines.
+- **`applyagent-mail`** — a relay-only Postfix + opendkim (`deploy/mail/`,
+  config `fly.mail.toml`): reachable only from the web app over Fly's private
+  network at `applyagent-mail.internal:25` (no inbound ports open, so it
+  cannot be abused as an open relay). It egresses via a **dedicated IPv4**
+  (`fly ips allocate-v4 -a applyagent-mail`, $2/mo) and **DKIM-signs** all
+  outbound mail for `youre-hired.eu` (selector `yh2026`; the private key is
+  the `DKIM_PRIVATE_KEY` secret). Outbound mail is delivered directly to
+  recipient MXes on port 25; MX lookups go through a tiny stdlib
+  DNS-over-HTTPS bridge (`deploy/mail/dnsbridge.py`) because Fly's built-in
+  resolver does not return MX records and public DNS is blocked from Fly
+  machines.
 
 ```bash
 fly deploy --local-only --yes -a applyagents                 # web app
@@ -152,12 +156,41 @@ The web app is pointed at the relay via non-secret env in `fly.toml`
 Without `EMAIL_HOST`, emails fall back to the console backend (printed to
 `fly logs`) — useful for local dev and tests.
 
-**Deliverability caveat:** the sender IP is Fly's shared egress and the
-`From` domain is `applyagents.fly.dev` (no SPF/DKIM possible on a fly.dev
-subdomain), so first mails to Gmail/Outlook/Tuta may land in spam. For
-production-grade delivery, attach a custom domain to the Fly app and publish
-SPF/DKIM/DMARC for it (and set `DEFAULT_FROM_EMAIL` accordingly), or relay via
-a provider's submission port instead.
+## Custom domain & email DNS (youre-hired.eu)
+
+The app is branded **You're Hired** and serves on **https://youre-hired.eu**
+(with `www.youre-hired.eu`; `applyagents.fly.dev` keeps working as fallback).
+TLS certs are already registered on the Fly app (`fly certs add youre-hired.eu
+www.youre-hired.eu -a applyagents` — status "Not verified" until the DNS
+records below exist; they issue automatically afterwards).
+
+Set these records at the registrar (Namecheap → Domain → BasicDNS; remove the
+parking page first). Current Fly IPs:
+
+| Host | Type | Value |
+|---|---|---|
+| `@` | A | `188.93.148.123` (web app dedicated IPv4) |
+| `@` | AAAA | `2a09:8280:1::218:d5db:0` (web app dedicated IPv6) |
+| `www` | A / AAAA | same as `@` (or CNAME to `youre-hired.eu`) |
+| `mail` | A | `137.66.61.53` (mail relay dedicated egress IP; also its HELO name) |
+| `@` | TXT (SPF) | `v=spf1 ip4:137.66.61.53 -all` |
+| `yh2026._domainkey` | TXT (DKIM) | `v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...` (full value below; if the UI rejects >255 chars, split into quoted 255-char chunks) |
+| `_dmarc` | TXT (DMARC) | `v=DMARC1; p=none; rua=mailto:rodolfo.dechiara@tuta.io` (start monitoring-only; move to `p=quarantine`/`p=reject` after a week) |
+| `@` | MX | keep the registrar's email-forwarding MXes (inbound still works), or set a null MX (`0 .`) if the domain should be send-only |
+
+Full DKIM TXT value (selector `yh2026`):
+
+```
+v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqpVEvzz6tGAXXX1j6Kf27W975veWPYQMnmprLqnKHyeI3whU8wrxKVibMaMh9NpmnkA+IC/+XxnvvwlvdqQeFAD6ei7aCWRRK741X1xPzk+1lAxpPzgylbI8DBnO0YeCkAXhMV13SYzuVxKpFW2vcGPmqA7CIqKzFHyBl4UwPMRBqXTIiDkyJb05K8thWgQtAEfjpVa/5mOgC6hiPs+44msljtQY2GFgvzQhnbhHgc0RmbNZJHXWVpVYeU7Q4VB/EKwqLRJV/bgxw0XLdrRPY4yGR36YxWVFhY9pSbuOFtAKzumlRN7JWCU5pjMnByxRZwTD7Z0eXqEyFBzWMg5T0wIDAQAB
+```
+
+(Regenerate the public half anytime with `openssl rsa -in <key> -pubout -outform DER | base64 -w0`; the private half lives only in the `DKIM_PRIVATE_KEY` Fly secret — never in git.)
+
+After DNS propagates: `fly certs check youre-hired.eu -a applyagents` should go
+green and https://youre-hired.eu serves the app. Verify sending with:
+`fly logs -a applyagent-mail | grep 'from=<noreply@youre-hired.eu>'` — and
+check the mail's `Authentication-Results` at the receiver for
+`dkim=pass header.d=youre-hired.eu`.
 
 `Dockerfile`, `.dockerignore`, `fly.toml` and `fly.mail.toml` are committed.
 The web image keeps the runtime dependency Django-only (gunicorn is installed

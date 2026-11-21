@@ -1,11 +1,14 @@
-# Relay-only Postfix for ApplyAgent on Fly's private 6PN.
-# No public inbound: the app has no [services], so no public IP is allocated.
+# Relay-only Postfix for You're Hired (youre-hired.eu) on Fly's private 6PN.
+# No public inbound: the app has no [services], so no inbound ports are open;
+# the dedicated IPv4 is used for egress only (SPF ip4 + PTR-friendly HELO).
 
 # Log to stdout so `fly logs` captures everything.
 maillog_file = /dev/stdout
 
-myhostname = applyagent-mail.internal
-mydomain = applyagents.fly.dev
+# HELO identity for outbound SMTP; mail.youre-hired.eu must have an A record
+# pointing at this app's dedicated IPv4.
+myhostname = mail.youre-hired.eu
+mydomain = youre-hired.eu
 myorigin = $mydomain
 inet_interfaces = all
 inet_protocols = all
@@ -20,6 +23,14 @@ mynetworks = 127.0.0.0/8 [::1]/128 172.16.0.0/12 [fd00::]/8
 smtpd_recipient_restrictions = permit_mynetworks, reject_unauth_destination
 smtpd_helo_required = yes
 smtpd_client_connection_count_limit = 20
+
+# DKIM-sign outbound mail (opendkim on 127.0.0.1:8891; key from the
+# DKIM_PRIVATE_KEY secret). If the milter is down, accept and send unsigned
+# rather than dropping the app's verification emails.
+smtpd_milters = inet:127.0.0.1:8891
+non_smtpd_milters = inet:127.0.0.1:8891
+milter_default_action = accept
+milter_protocol = 6
 
 # Outbound: opportunistic TLS, deliver straight to the recipient's MX.
 smtp_tls_security_level = may

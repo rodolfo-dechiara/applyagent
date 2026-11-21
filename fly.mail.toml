@@ -1,4 +1,4 @@
-# Fly app: applyagent-mail — a tiny relay-only Postfix.
+# Fly app: applyagent-mail — a tiny relay-only Postfix + DKIM signer.
 # Deliberately NO [services]/[[http_service]] block: no public IP is allocated,
 # so the relay is reachable only from other apps in this org at
 # applyagent-mail.internal:25 (Fly private 6PN). The applyagents app sends
@@ -10,7 +10,7 @@ primary_region = "fra"
   dockerfile = "deploy/mail/Dockerfile"
 
 [env]
-  MAIL_DOMAIN = "applyagents.fly.dev"
+  MAIL_DOMAIN = "youre-hired.eu"
 
 # Stays running (no auto-stop): it is infrastructure, not an HTTP app.
 min_machines_running = 1

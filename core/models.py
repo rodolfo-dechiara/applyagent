@@ -45,6 +45,9 @@ class JobPosting(models.Model):
     company = models.CharField(max_length=200, blank=True)
     description = models.TextField()
     source_url = models.URLField(blank=True, validators=[HTTP_URL_VALIDATOR])
+    # Opt-in visibility on the public jobs board (/jobs/). Private postings are
+    # visible only to their owner; everyone else gets a 404.
+    is_public = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self) -> str:

@@ -24,6 +24,10 @@ smtpd_client_connection_count_limit = 20
 # Outbound: opportunistic TLS, deliver straight to the recipient's MX.
 smtp_tls_security_level = may
 smtp_tls_note_starttls_offer = yes
+# Fly's resolver (fdaa::3) only answers via the system resolver (getaddrinfo),
+# not via raw DNS MX queries, and public DNS over UDP/TCP 53 is blocked.
+# "native" makes Postfix use getaddrinfo (A/AAAA, implicit-MX style).
+smtp_host_lookup = native
 message_size_limit = 10485760
 
 # Small demo queue.

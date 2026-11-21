@@ -40,6 +40,22 @@ from core.security import client_ip
 from core.security import logger as security_logger
 
 
+def csrf_failure(request: HttpRequest, reason: str = "") -> HttpResponse:
+    """Branded 403 for CSRF rejections.
+
+    The usual cause in normal use: a page rendered *before* a login rotated
+    the CSRF cookie (Django rotates it on every login) is submitted after the
+    rotation — e.g. the navbar's Log out button on a tab that was open across
+    a re-login. The internal reason stays in the server log
+    (django.security.csrf) and is never shown to the user.
+    """
+    if reason:
+        security_logger.info(
+            "csrf_rejected reason=%s path=%s ip=%s", reason, request.path, client_ip(request)
+        )
+    return render(request, "403_csrf.html", status=403)
+
+
 def send_verification_email(request: HttpRequest, user: User) -> bool:
     """Create/rotate the token and email the verification link.
 

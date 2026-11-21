@@ -5,6 +5,8 @@ autoescaping), source URLs are http/https only, free text is length-capped,
 CSRF is enforced, and every app page requires login.
 """
 
+import re
+
 from django.contrib.auth.models import User
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
@@ -164,6 +166,39 @@ class CsrfAndAnonymousTests(TestCase):
             reverse("core:application_status", args=[app.pk]), {"status": "ready"}
         )
         self.assertEqual(response.status_code, 403)
+
+    def test_csrf_failure_renders_friendly_403_page(self) -> None:
+        """A stale form token (page rendered before a login rotated the CSRF
+        cookie in another tab) must get our branded 403 with a recovery hint,
+        not Django's bare debug-style 403."""
+        user = User.objects.create_user(username="alice", password=PASSWORD)
+        client = Client(enforce_csrf_checks=True)
+        client.force_login(user)
+        response = client.post(
+            reverse("logout"), {"csrfmiddlewaretoken": "stale-token-from-an-old-page"}
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertTemplateUsed(response, "403_csrf.html")
+        self.assertContains(response, "Reload", status_code=403)
+
+    def test_csrf_failure_does_not_leak_internal_reason(self) -> None:
+        user = User.objects.create_user(username="alice", password=PASSWORD)
+        client = Client(enforce_csrf_checks=True)
+        client.force_login(user)
+        response = client.post(reverse("logout"), {"csrfmiddlewaretoken": "bogus"})
+        self.assertEqual(response.status_code, 403)
+        self.assertNotContains(response, "CSRF token from POST incorrect", status_code=403)
+
+    def test_valid_token_still_passes_with_csrf_enforcement(self) -> None:
+        """Sanity: the friendly 403 view must not break the happy path."""
+        user = User.objects.create_user(username="alice", password=PASSWORD)
+        client = Client(enforce_csrf_checks=True)
+        client.force_login(user)
+        page = client.get(reverse("core:dashboard"))
+        match = re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', page.content.decode())
+        assert match, "no csrf token rendered on the dashboard"
+        response = client.post(reverse("logout"), {"csrfmiddlewaretoken": match.group(1)})
+        self.assertEqual(response.status_code, 302)
 
     def test_every_app_page_requires_login(self) -> None:
         user = User.objects.create_user(username="alice", password=PASSWORD)

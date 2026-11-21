@@ -76,6 +76,9 @@ SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_HTTPONLY = True
+# Branded, user-friendly 403 instead of Django's bare CSRF failure page (the
+# token rotates on every login, so stale tabs are an expected occurrence).
+CSRF_FAILURE_VIEW = "core.views.csrf_failure"
 
 if not DEBUG:
     SECURE_SSL_REDIRECT = True

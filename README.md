@@ -49,6 +49,22 @@ Set `MISTRAL_API_KEY` to get real agent-drafted packages; the system prompt
 forbids inventing facts about the candidate — anything the profile lacks
 goes into `red_flags`, never into the cover letter.
 
+## Public job board + demo postings flag
+
+`/jobs/` is a **public** board of postings whose owner ticked "list on the
+public job board" when pasting (private by default — everyone else gets a
+404 on a private posting, same ownership rule as applications). Anyone can
+browse it anonymously; a logged-in candidate can POST "Build my application
+for this job" on a posting, which clones the posting privately to them and
+generates the agent package immediately (the original stays untouched).
+
+For demos, set **`APPLYAGENT_DEMO_JOBS=true`** (`DEMO_JOBS_ENABLED`): the
+board then seeds itself on first view with clearly-marked fake postings
+(`DEMO POSTING: ...` in the description), owned by a login-less `demo-board`
+system account. Seeding is idempotent and a no-op when the flag is off —
+so CI and local dev never see fake data. On Fly.io:
+`fly secrets set APPLYAGENT_DEMO_JOBS=true -a applyagents`.
+
 ## Development
 
 ```bash
@@ -67,7 +83,8 @@ E2E tests (`core/tests/test_e2e.py`) drive real Chromium via Playwright
 the full register → verify-email → profile → paste-job → HTMX-regenerate →
 edit → status → delete loop on a 390px mobile viewport (asserting no
 horizontal overflow and a working hamburger menu) and a 1280px desktop
-viewport, plus overflow checks on all auth pages at 360px.
+viewport, a board apply-from-demo-posting flow with the demo-jobs flag on,
+plus overflow checks on all auth pages and `/jobs/` at 360px.
 
 CI (`.github/workflows/ci.yml`) runs lint, types, tests (`--exclude-tag e2e`),
 a dedicated `e2e` job (installs Chromium, runs the e2e suite), and a
@@ -106,6 +123,7 @@ agent/     the whole provider surface + package generation
   prompts.py   system prompt (one JSON object, no fabrication) + user prompt
   service.py   extract_json, validation/normalization, demo mode
 core/      Profile / JobPosting / Application, views, forms, templates
+           demo_data.py  fake board postings behind the DEMO_JOBS_ENABLED flag
 ```
 
 ## Deploy on Fly.io

@@ -86,6 +86,11 @@ class EndToEndTests(LiveServerTestCase):
             page.locator("nav >> text=Register").last.wait_for(state="visible")
             assert_no_horizontal_overflow(page)
 
+            # Public job board is reachable anonymously, with empty state (flag off).
+            page.goto(f"{base}/jobs/", wait_until="domcontentloaded")
+            page.wait_for_selector("text=No public job postings yet")
+            assert_no_horizontal_overflow(page)
+
             register_verify_login(page, base, "mobileuser")
             assert_no_horizontal_overflow(page)
 
@@ -157,8 +162,36 @@ class EndToEndTests(LiveServerTestCase):
                 "/accounts/register/",
                 "/accounts/verify/resend/",
                 "/accounts/password-reset/",
+                "/jobs/",
             ]:
                 with self.subTest(path=path):
                     page.goto(f"{base}{path}", wait_until="domcontentloaded")
                     assert_no_horizontal_overflow(page)
+            browser.close()
+
+    @override_settings(MISTRAL_API_KEY=None, DEMO_JOBS_ENABLED=True)
+    def test_mobile_board_demo_flag_apply_flow(self) -> None:
+        """With the demo flag on, the board shows marked fake postings and a
+        logged-in candidate can apply to one straight from the board."""
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            page = browser.new_page(viewport=MOBILE)
+            base = self.live_server_url
+
+            register_verify_login(page, base, "boarduser")
+            page.goto(f"{base}/jobs/", wait_until="domcontentloaded")
+            page.wait_for_selector("text=Demo mode is on")
+            page.wait_for_selector("text=Senior Backend Engineer")
+            assert_no_horizontal_overflow(page)
+
+            with page.expect_navigation(wait_until="domcontentloaded"):
+                page.locator("main a", has_text="Senior Backend Engineer").first.click()
+            assert re.search(r"/jobs/\d+/$", page.url), page.url
+            assert_no_horizontal_overflow(page)
+
+            # POST the apply form -> own application page with a demo package.
+            submit_and_wait(page, r"/applications/\d+/$")
+            page.wait_for_selector("section#package >> text=DEMO OUTPUT")
+            assert_no_horizontal_overflow(page)
+
             browser.close()

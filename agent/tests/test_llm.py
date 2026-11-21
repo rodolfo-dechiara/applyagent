@@ -7,6 +7,7 @@ import io
 import json
 import unittest
 import urllib.error
+from email.message import Message
 from typing import Any
 from unittest import mock
 
@@ -47,7 +48,15 @@ class ChatSuccessTests(unittest.TestCase):
     @mock.patch("urllib.request.urlopen")
     def test_posts_to_mistral_endpoint_with_auth_header(self, urlopen: mock.MagicMock) -> None:
         urlopen.return_value = _fake_response(GOOD_PAYLOAD)
-        chat(MESSAGES, model="m", api_key="secret-key", timeout=12, json_mode=False)
+        chat(
+            MESSAGES,
+            model="m",
+            api_key="secret-key",
+            timeout=12,
+            temperature=0.2,
+            max_tokens=100,
+            json_mode=False,
+        )
         request = urlopen.call_args.args[0]
         self.assertEqual(request.full_url, "https://api.mistral.ai/v1/chat/completions")
         self.assertEqual(request.get_header("Authorization"), "Bearer secret-key")
@@ -76,7 +85,7 @@ class ChatFailureTests(unittest.TestCase):
             "https://api.mistral.ai/v1/chat/completions",
             401,
             "Unauthorized",
-            {},
+            Message(),
             io.BytesIO(b'{"message": "bad api key"}'),
         )
         urlopen.side_effect = error

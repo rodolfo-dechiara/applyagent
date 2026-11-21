@@ -3,35 +3,6 @@ revision = 3
 requires-python = ">=3.13"
 
 [[package]]
-name = "applyagent"
-version = "0.1.0"
-source = { virtual = "." }
-dependencies = [
-    { name = "django" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "django-stubs" },
-    { name = "playwright" },
-    { name = "pre-commit" },
-    { name = "pyrefly" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "django", specifier = ">=5.2,<6" }]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "django-stubs", specifier = ">=5.2,<6" },
-    { name = "playwright", specifier = ">=1.65.2" },
-    { name = "pre-commit", specifier = ">=4.7.0" },
-    { name = "pyrefly", specifier = ">=1.5.0" },
-    { name = "ruff", specifier = ">=0.17.6" },
-]
-
-[[package]]
 name = "asgiref"
 version = "3.13.0"
 source = { registry = "https://pypi.org/simple" }
@@ -398,4 +369,33 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/b7/db/4281879de138c880ac9f4c697f633e05f2703912f0fd0add006474db7f27/virtualenv-21.15.11.tar.gz", hash = "sha256:6ad11e129f546835ae81d47a27f48ed32dcc4e2a0776014a159bab8895cdb9ac", size = 5730372, upload-time = "2026-11-21T00:02:42.141Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/17/08/345a3bb8642aca332ad08a2148d682e8fb02d3d8d8a2cf89ba8f5347ada0/virtualenv-21.15.11-py3-none-any.whl", hash = "sha256:0390c40275487b5e677a1e559e30204ff061db4c5fec39c81d0dff1b24d2b774", size = 5748597, upload-time = "2026-11-21T00:02:40.175Z" },
+]
+
+[[package]]
+name = "youre-hired"
+version = "0.1.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "django" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "django-stubs" },
+    { name = "playwright" },
+    { name = "pre-commit" },
+    { name = "pyrefly" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "django", specifier = ">=5.2,<6" }]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "django-stubs", specifier = ">=5.2,<6" },
+    { name = "playwright", specifier = ">=1.65.2" },
+    { name = "pre-commit", specifier = ">=4.7.0" },
+    { name = "pyrefly", specifier = ">=1.5.0" },
+    { name = "ruff", specifier = ">=0.17.6" },
 ]

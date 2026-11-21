@@ -1,4 +1,4 @@
-"""Django settings for the ApplyAgent project.
+"""Django settings for the You're Hired project.
 
 Glue configuration: environment-driven, SQLite, no external services required.
 Demo mode is the default: without MISTRAL_API_KEY the agent layer returns
@@ -205,7 +205,7 @@ if EMAIL_HOST:
     EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "true").lower() in ("1", "true", "yes")
 else:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "ApplyAgent <noreply@applyagent.local>")
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "You're Hired <noreply@youre-hired.eu>")
 
 # Rate limiting (fixed window; login is additionally keyed per account).
 # The default cache is process-local: correct for one machine, move CACHES to a

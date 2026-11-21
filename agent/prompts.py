@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from core.models import JobPosting, Profile
 
-SYSTEM_PROMPT = """You are ApplyAgent, an assistant that drafts job application packages for a \
+SYSTEM_PROMPT = """You are You're Hired, an assistant that drafts job application packages for a \
 candidate. The candidate reviews and edits everything you produce; nothing is final until \
 they approve it.
 

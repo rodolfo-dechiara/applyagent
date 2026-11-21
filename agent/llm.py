@@ -1,4 +1,4 @@
-"""The whole LLM provider surface of ApplyAgent.
+"""The whole LLM provider surface of You're Hired.
 
 A single function, chat(), talking to the Mistral chat completions API using
 only the standard library (urllib). Swapping providers means swapping only

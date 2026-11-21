@@ -179,7 +179,7 @@ class VerifyEmailView(View):
         user.backend = "django.contrib.auth.backends.ModelBackend"
         login(request, user)
         security_logger.info("email_verified user=%s ip=%s", user.username, client_ip(request))
-        messages.success(request, "Email verified — welcome to ApplyAgent!")
+        messages.success(request, "Email verified — welcome to You're Hired!")
         return redirect("core:dashboard")
 
 

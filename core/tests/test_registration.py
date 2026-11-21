@@ -44,6 +44,15 @@ class RegistrationVerificationTests(TestCase):
         self.assertIn("/accounts/verify/", message.body)
         self.assertTrue(EmailVerification.objects.filter(user__username="newbie").exists())
 
+    def test_emails_are_sent_from_the_yourehired_domain(self) -> None:
+        """Rebrand lock: the default From address is the youre-hired.eu brand."""
+        from django.conf import settings
+
+        self.assertIn("youre-hired.eu", settings.DEFAULT_FROM_EMAIL)
+        self.assertIn("You're Hired", settings.DEFAULT_FROM_EMAIL)
+        register(self.client, username="newbie2")
+        self.assertEqual(mail.outbox[-1].from_email, settings.DEFAULT_FROM_EMAIL)
+
     @override_settings(
         EMAIL_BACKEND="django.core.mail.backends.smtp.EmailBackend",
         EMAIL_HOST="127.0.0.1",

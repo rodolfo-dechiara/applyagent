@@ -1,4 +1,4 @@
-# Fly.io deployment config for ApplyAgent.
+# Fly.io deployment config for You're Hired.
 # Deploy with:  fly auth login && fly apps create applyagents && \
 #   fly volumes create data --size 1 --region fra && \
 #   fly secrets set DJANGO_SECRET_KEY="$(openssl rand -hex 32)" && \
@@ -14,17 +14,19 @@ primary_region = "fra"
 
 [env]
   DEBUG = "False"
-  DJANGO_ALLOWED_HOSTS = "applyagents.fly.dev"
-  DJANGO_CSRF_TRUSTED_ORIGINS = "https://applyagents.fly.dev"
+  # Custom domain (youre-hired.eu) plus the fly.dev fallback.
+  DJANGO_ALLOWED_HOSTS = "applyagents.fly.dev,youre-hired.eu,www.youre-hired.eu"
+  DJANGO_CSRF_TRUSTED_ORIGINS = "https://applyagents.fly.dev,https://youre-hired.eu,https://www.youre-hired.eu"
   # SQLite lives on the mounted volume, not in the ephemeral image fs.
   APPLYAGENT_DB = "/data/db.sqlite3"
   # MISTRAL_API_KEY is set via `fly secrets set` (optional: demo mode without it).
   # Outbound email goes to the relay-only Postfix app over Fly's private
-  # network (no public IP, no auth needed inside the org).
+  # network (no inbound ports open; it egresses via its dedicated IPv4 and
+  # signs DKIM for youre-hired.eu).
   EMAIL_HOST = "applyagent-mail.internal"
   EMAIL_PORT = "25"
   EMAIL_USE_TLS = "false"
-  DEFAULT_FROM_EMAIL = "ApplyAgent <noreply@applyagents.fly.dev>"
+  DEFAULT_FROM_EMAIL = "You're Hired <noreply@youre-hired.eu>"
 
 [processes]
   # No release_command: a Fly volume attaches to a single machine, so

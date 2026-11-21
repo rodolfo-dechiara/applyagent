@@ -80,7 +80,7 @@ def ensure_demo_jobs() -> int:
         return 0
     owner, created = User.objects.get_or_create(
         username=DEMO_OWNER_USERNAME,
-        defaults={"email": "demo-board@applyagent.local", "is_active": False},
+        defaults={"email": "demo-board@youre-hired.eu", "is_active": False},
     )
     if created or not owner.password or not owner.has_usable_password():
         owner.set_unusable_password()

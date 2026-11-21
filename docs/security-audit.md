@@ -1,4 +1,4 @@
-# ApplyAgent — Security Audit Report
+# You're Hired — Security Audit Report
 
 **Date:** 2026-11-21
 **Scope:** the whole v0 codebase (`config/`, `core/`, `agent/`), deployment config

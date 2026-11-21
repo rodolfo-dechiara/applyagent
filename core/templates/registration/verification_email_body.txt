@@ -1,6 +1,6 @@
 Hi {{ user.username }},
 
-Confirm your ApplyAgent account by opening this link (valid for {{ ttl_hours }} hours, single use):
+Confirm your You're Hired account by opening this link (valid for {{ ttl_hours }} hours, single use):
 
 {{ url }}
 

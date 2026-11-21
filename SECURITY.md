@@ -9,7 +9,7 @@ security reports. You should receive an acknowledgment within 72 hours.
 
 ## Scope
 
-ApplyAgent v0 is a candidate-side application builder. It processes job postings
+You're Hired v0 is a candidate-side application builder. It processes job postings
 and CV text pasted by the candidate, and calls the Mistral API with profile data
 when `MISTRAL_API_KEY` is set. v0 never submits anything to third parties and
 performs no outbound requests to user-supplied URLs.

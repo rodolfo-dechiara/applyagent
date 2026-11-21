@@ -1,4 +1,4 @@
-# ApplyAgent v0
+# You're Hired v0
 
 A candidate-side agentic job application builder — the first half of an
 "AI-augmented LinkedIn". You keep one master profile, paste a job posting,

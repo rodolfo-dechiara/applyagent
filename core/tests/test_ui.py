@@ -9,6 +9,14 @@ from core.tests.utils import PASSWORD, register_and_verify
 
 
 class ModernUiTests(TestCase):
+    def test_brand_is_youre_hired_everywhere(self) -> None:
+        """Rebrand lock: navbar logo and page title show the youre-hired.eu brand."""
+        response = self.client.get(reverse("login"))
+        html = response.content.decode()
+        self.assertIn("You're Hired", html)  # navbar logo
+        self.assertIn("<title>Log in — You're Hired</title>", html)
+        self.assertNotIn("ApplyAgent", html)
+
     def test_login_page_loads_inter_font_and_gradients(self) -> None:
         response = self.client.get(reverse("login"))
         self.assertEqual(response.status_code, 200)

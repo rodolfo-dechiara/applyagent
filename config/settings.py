@@ -175,6 +175,15 @@ LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "core:dashboard"
 LOGOUT_REDIRECT_URL = "login"
 
+# Feature flag: seed the public jobs board (/jobs/) with clearly-marked fake
+# postings so demos never show an empty board. Off by default; enable with
+# APPLYAGENT_DEMO_JOBS=true (e.g. on the demo deployment).
+DEMO_JOBS_ENABLED = os.environ.get("APPLYAGENT_DEMO_JOBS", "false").lower() in (
+    "1",
+    "true",
+    "yes",
+)
+
 # Agent / Mistral configuration. MISTRAL_API_KEY is optional: when it is not set,
 # the whole application runs in deterministic demo mode.
 MISTRAL_API_KEY = os.environ.get("MISTRAL_API_KEY") or None

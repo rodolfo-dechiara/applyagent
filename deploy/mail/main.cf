@@ -13,8 +13,10 @@ mydestination = $myhostname, localhost.$mydomain, localhost
 
 # Trust only the Fly private network (fdaa::/8 6PN + container-local ranges)
 # and localhost; relay for those, reject everything else (no open relay).
-# NOTE: Postfix requires brackets for IPv6 blocks here: [fdaa::]/8.
-mynetworks = 127.0.0.0/8 [::1]/128 172.16.0.0/12 [fdaa::]/8
+# NOTE: Postfix requires brackets for IPv6 blocks here, and the canonical
+# network form (zeroed host bits): [fd00::]/8 covers the whole Fly 6PN ULA
+# range, including fdaa::/8.
+mynetworks = 127.0.0.0/8 [::1]/128 172.16.0.0/12 [fd00::]/8
 smtpd_recipient_restrictions = permit_mynetworks, reject_unauth_destination
 smtpd_helo_required = yes
 smtpd_client_connection_count_limit = 20

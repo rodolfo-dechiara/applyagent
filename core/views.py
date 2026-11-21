@@ -8,18 +8,19 @@ from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib.auth.models import User
+from django.contrib.auth.models import AbstractBaseUser, AnonymousUser, User
 from django.core.mail import send_mail
 from django.db.models import QuerySet
-from django.http import HttpRequest, HttpResponse
+from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.utils.decorators import method_decorator
-from django.views.generic import DetailView, FormView, TemplateView, UpdateView, View
+from django.views.generic import DetailView, FormView, ListView, TemplateView, UpdateView, View
 
 from agent.service import ApplicationPackage, GenerationError, generate_application_package
+from core.demo_data import ensure_demo_jobs
 from core.forms import (
     ApplicationEditForm,
     JobPostingForm,
@@ -27,7 +28,13 @@ from core.forms import (
     RegisterForm,
     ResendVerificationForm,
 )
-from core.models import EMAIL_VERIFICATION_TTL, Application, EmailVerification, Profile
+from core.models import (
+    EMAIL_VERIFICATION_TTL,
+    Application,
+    EmailVerification,
+    JobPosting,
+    Profile,
+)
 from core.ratelimit import rate_limited
 from core.security import client_ip
 from core.security import logger as security_logger
@@ -225,6 +232,39 @@ class ProfileView(LoginRequiredMixin, View):
         return render(request, self.template_name, {"form": form})
 
 
+def create_application_with_package(
+    user: AbstractBaseUser | AnonymousUser, job: JobPosting
+) -> tuple[Application, str | None]:
+    """Create the Application for (user, job) and generate its package.
+
+    Shared by the paste-a-job flow and the apply-from-public-board flow — both
+    behind LoginRequiredMixin, so the assert below always holds.
+    Returns (application, error): on GenerationError the application still
+    exists (empty package, correct provenance) and error carries the message,
+    so the candidate can regenerate from the application page.
+    """
+    assert isinstance(user, User)
+    profile, _created = Profile.objects.get_or_create(user=user)
+    try:
+        package = generate_application_package(profile, job)
+    except GenerationError as exc:
+        application = Application.objects.create(
+            job=job,
+            user=user,
+            agent_mode=(
+                Application.AgentMode.MISTRAL
+                if settings.MISTRAL_API_KEY
+                else Application.AgentMode.DEMO
+            ),
+            agent_model=(str(settings.MISTRAL_MODEL) if settings.MISTRAL_API_KEY else "demo"),
+            generated_at=timezone.now(),
+        )
+        return application, str(exc)
+    application = Application.objects.create(job=job, user=user)
+    apply_package(application, package)
+    return application, None
+
+
 class JobCreateView(LoginRequiredMixin, FormView):
     """Paste a job posting; on save the package is generated immediately."""
 
@@ -235,30 +275,103 @@ class JobCreateView(LoginRequiredMixin, FormView):
         job = form.save(commit=False)
         job.owner = self.request.user
         job.save()
-        profile, _created = Profile.objects.get_or_create(user=self.request.user)
-        try:
-            package = generate_application_package(profile, job)
-        except GenerationError as exc:
+        application, error = create_application_with_package(self.request.user, job)
+        if error is not None:
             messages.error(
                 self.request,
-                f"Generation failed: {exc} You can regenerate from the application page.",
-            )
-            application = Application.objects.create(
-                job=job,
-                user=self.request.user,
-                agent_mode=(
-                    Application.AgentMode.MISTRAL
-                    if settings.MISTRAL_API_KEY
-                    else Application.AgentMode.DEMO
-                ),
-                agent_model=(str(settings.MISTRAL_MODEL) if settings.MISTRAL_API_KEY else "demo"),
-                generated_at=timezone.now(),
+                f"Generation failed: {error} You can regenerate from the application page.",
             )
         else:
-            application = Application.objects.create(job=job, user=self.request.user)
-            apply_package(application, package)
             messages.success(
                 self.request,
+                "Application package generated — review and edit it; nothing is "
+                "final until you say so.",
+            )
+        return redirect("core:application_detail", pk=application.pk)
+
+
+class JobBoardView(ListView):
+    """The public jobs board: every posting whose owner opted in with
+    is_public. Anonymous access is intended. When the demo flag is on,
+    clearly-marked fake postings are seeded on first view (idempotent)."""
+
+    template_name = "core/job_board.html"
+    context_object_name = "postings"
+
+    def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        ensure_demo_jobs()  # no-op unless settings.DEMO_JOBS_ENABLED
+        return super().get(request, *args, **kwargs)
+
+    def get_queryset(self) -> QuerySet[JobPosting]:
+        return (
+            JobPosting.objects.filter(is_public=True)
+            .select_related("owner")
+            .order_by("-created_at")
+        )
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        context["demo_jobs_enabled"] = settings.DEMO_JOBS_ENABLED
+        return context
+
+
+class JobBoardDetailView(DetailView):
+    """Public detail for a board posting. Private postings are visible only to
+    their owner — everyone else (including anonymous) gets a 404, matching the
+    cross-user ownership rule used for applications."""
+
+    template_name = "core/job_board_detail.html"
+    context_object_name = "posting"
+
+    def get_object(self, queryset: QuerySet[JobPosting] | None = None) -> JobPosting:
+        posting = get_object_or_404(JobPosting, pk=self.kwargs["pk"])
+        if not posting.is_public and posting.owner != self.request.user:
+            raise Http404
+        return posting
+
+
+@method_decorator(rate_limited("job_apply", 20, 3600), name="dispatch")
+class JobBoardApplyView(LoginRequiredMixin, View):
+    """POST-only: build the candidate's own application from a board posting.
+
+    The public posting is never modified — the candidate gets a private clone
+    (same title/company/description/source_url, is_public=False) and a fresh
+    generated package. Applying twice to the same posting reuses the existing
+    clone and application instead of duplicating them. Private postings are
+    off-limits to everyone but their owner (404)."""
+
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        posting = get_object_or_404(JobPosting, pk=kwargs["pk"])
+        if not posting.is_public and posting.owner != request.user:
+            raise Http404
+        clone = JobPosting.objects.filter(
+            owner=request.user,
+            title=posting.title,
+            company=posting.company,
+            source_url=posting.source_url,
+        ).first()
+        if clone is not None:
+            existing = Application.objects.filter(job=clone, user=request.user).first()
+            if existing is not None:
+                messages.info(request, "You already have an application for this posting.")
+                return redirect("core:application_detail", pk=existing.pk)
+        else:
+            clone = JobPosting.objects.create(
+                owner=request.user,
+                title=posting.title,
+                company=posting.company,
+                description=posting.description,
+                source_url=posting.source_url,
+                is_public=False,
+            )
+        application, error = create_application_with_package(request.user, clone)
+        if error is not None:
+            messages.error(
+                request, f"Generation failed: {error} You can regenerate from the application page."
+            )
+        else:
+            messages.success(
+                request,
                 "Application package generated — review and edit it; nothing is "
                 "final until you say so.",
             )

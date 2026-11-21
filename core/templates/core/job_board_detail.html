@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}{{ posting.title }} — ApplyAgent{% endblock %}
+{% block content %}
+  <a href="{% url 'core:job_board' %}" class="text-sm font-medium text-indigo-600 hover:underline"
+    >&larr; Back to the job board</a
+  >
+
+  <div
+    class="mt-4 rounded-2xl border border-slate-200/70 bg-white/80 p-6 shadow-xl shadow-indigo-600/5 backdrop-blur"
+  >
+    <h1
+      class="bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 bg-clip-text text-2xl font-extrabold tracking-tight text-transparent sm:text-3xl"
+    >
+      {{ posting.title }}
+    </h1>
+    <p class="mt-1 text-slate-500">
+      {{ posting.company }} &middot; posted {{ posting.created_at|date:"Y-m-d" }}
+      {% if posting.source_url %}
+        &middot;
+        <a href="{{ posting.source_url }}" rel="noopener noreferrer" class="font-medium text-indigo-600 hover:underline"
+          >source</a
+        >
+      {% endif %}
+    </p>
+    <div class="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{{ posting.description }}</div>
+
+    <div class="mt-6 border-t border-slate-100 pt-4">
+      {% if user.is_authenticated %}
+        <form method="post" action="{% url 'core:job_board_apply' pk=posting.pk %}">
+          {% csrf_token %}
+          <button
+            type="submit"
+            class="rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-600/25 transition hover:brightness-110"
+          >
+            Build my application for this job
+          </button>
+          <p class="mt-2 text-xs text-slate-500">
+            The agent drafts the package from your profile; you review and edit
+            before anything counts. Nothing is submitted anywhere.
+          </p>
+        </form>
+      {% else %}
+        <p class="text-sm text-slate-600">
+          <a href="{% url 'login' %}?next={{ request.path }}" class="font-semibold text-indigo-600 hover:underline">Log in</a>
+          or
+          <a href="{% url 'register' %}" class="font-semibold text-indigo-600 hover:underline">register</a>
+          to build your application for this job.
+        </p>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

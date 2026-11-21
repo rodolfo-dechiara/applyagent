@@ -84,6 +84,9 @@
             <a href="{% url 'core:dashboard' %}" class="font-medium text-slate-600 transition hover:text-indigo-600"
               >Dashboard</a
             >
+            <a href="{% url 'core:job_board' %}" class="font-medium text-slate-600 transition hover:text-indigo-600"
+              >Jobs</a
+            >
             <a href="{% url 'core:profile' %}" class="font-medium text-slate-600 transition hover:text-indigo-600"
               >My profile</a
             >
@@ -105,6 +108,9 @@
           </div>
         {% else %}
           <div class="hidden items-center gap-4 text-sm md:flex">
+            <a href="{% url 'core:job_board' %}" class="font-medium text-slate-600 transition hover:text-indigo-600"
+              >Jobs</a
+            >
             <a href="{% url 'login' %}" class="font-medium text-slate-600 transition hover:text-indigo-600"
               >Log in</a
             >
@@ -139,6 +145,9 @@
             <a href="{% url 'core:dashboard' %}" class="rounded-lg px-3 py-2 font-medium text-slate-700 hover:bg-indigo-50"
               >Dashboard</a
             >
+            <a href="{% url 'core:job_board' %}" class="rounded-lg px-3 py-2 font-medium text-slate-700 hover:bg-indigo-50"
+              >Jobs</a
+            >
             <a href="{% url 'core:profile' %}" class="rounded-lg px-3 py-2 font-medium text-slate-700 hover:bg-indigo-50"
               >My profile</a
             >
@@ -158,6 +167,9 @@
               </button>
             </form>
           {% else %}
+            <a href="{% url 'core:job_board' %}" class="rounded-lg px-3 py-2 font-medium text-slate-700 hover:bg-indigo-50"
+              >Jobs</a
+            >
             <a href="{% url 'login' %}" class="rounded-lg px-3 py-2 font-medium text-slate-700 hover:bg-indigo-50"
               >Log in</a
             >

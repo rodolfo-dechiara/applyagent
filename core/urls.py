@@ -9,6 +9,9 @@ from core.views import (
     ApplicationRegenerateView,
     ApplicationStatusView,
     DashboardView,
+    JobBoardApplyView,
+    JobBoardDetailView,
+    JobBoardView,
     JobCreateView,
     ProfileView,
 )
@@ -18,6 +21,10 @@ app_name = "core"
 urlpatterns: list[URLPattern] = [
     path("", DashboardView.as_view(), name="dashboard"),
     path("profile/", ProfileView.as_view(), name="profile"),
+    # Public jobs board (anonymous access intended; <int:pk> never matches "new").
+    path("jobs/", JobBoardView.as_view(), name="job_board"),
+    path("jobs/<int:pk>/", JobBoardDetailView.as_view(), name="job_board_detail"),
+    path("jobs/<int:pk>/apply/", JobBoardApplyView.as_view(), name="job_board_apply"),
     path("jobs/new/", JobCreateView.as_view(), name="job_new"),
     path("applications/<int:pk>/", ApplicationDetailView.as_view(), name="application_detail"),
     path(

@@ -6,9 +6,12 @@ its implementation was added.
 
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.core.cache import cache
 from django.test import TestCase, override_settings
+from django.urls import reverse
 
-from core.models import JobPosting
+from core.demo_data import DEMO_POSTINGS
+from core.models import Application, JobPosting, Profile
 from core.tests.utils import PASSWORD
 
 
@@ -79,3 +82,200 @@ class EnsureDemoJobsTests(TestCase):
         count = JobPosting.objects.count()
         self.assertEqual(ensure_demo_jobs(), 0)
         self.assertEqual(JobPosting.objects.count(), count)
+
+
+class JobBoardListTests(TestCase):
+    """Cycle 3: /jobs/ is public, lists only is_public postings, and seeds
+    demo postings when the flag is on."""
+
+    def setUp(self) -> None:
+        self.user = User.objects.create_user(username="alice", password=PASSWORD)
+        self.public_job = JobPosting.objects.create(
+            owner=self.user,
+            title="Public Platform Role",
+            company="Open Corp",
+            description="Work on public things.",
+            is_public=True,
+        )
+        self.private_job = JobPosting.objects.create(
+            owner=self.user,
+            title="Secret Internal Role",
+            company="Hidden Inc",
+            description="Not for the board.",
+        )
+
+    def test_anonymous_can_view_board(self) -> None:
+        response = self.client.get(reverse("core:job_board"))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "core/job_board.html")
+
+    def test_only_public_postings_are_listed(self) -> None:
+        response = self.client.get(reverse("core:job_board"))
+        self.assertContains(response, "Public Platform Role")
+        self.assertNotContains(response, "Secret Internal Role")
+
+    def test_empty_state_when_nothing_public(self) -> None:
+        JobPosting.objects.all().delete()
+        response = self.client.get(reverse("core:job_board"))
+        self.assertContains(response, "No public job postings yet")
+
+    @override_settings(DEMO_JOBS_ENABLED=True)
+    def test_demo_flag_seeds_board_on_view_and_stays_idempotent(self) -> None:
+        response = self.client.get(reverse("core:job_board"))
+        self.assertEqual(response.status_code, 200)
+        for data in DEMO_POSTINGS:
+            self.assertContains(response, data["title"])
+        self.assertEqual(
+            JobPosting.objects.filter(is_public=True, owner__username="demo-board").count(),
+            len(DEMO_POSTINGS),
+        )
+        self.client.get(reverse("core:job_board"))
+        self.assertEqual(
+            JobPosting.objects.filter(owner__username="demo-board").count(), len(DEMO_POSTINGS)
+        )
+
+    def test_navbar_links_to_board_for_anonymous(self) -> None:
+        response = self.client.get(reverse("login"))
+        self.assertContains(response, f'href="{reverse("core:job_board")}"')
+
+
+class JobBoardDetailTests(TestCase):
+    """Cycle 4: the board detail page is public for public postings; private
+    postings are 404 for anonymous users and for everyone but the owner."""
+
+    def setUp(self) -> None:
+        self.owner = User.objects.create_user(username="alice", password=PASSWORD)
+        self.other = User.objects.create_user(username="bob", password=PASSWORD)
+        self.public_job = JobPosting.objects.create(
+            owner=self.owner,
+            title="Public Platform Role",
+            company="Open Corp",
+            description="Full description of the public role.",
+            is_public=True,
+        )
+        self.private_job = JobPosting.objects.create(
+            owner=self.owner,
+            title="Secret Internal Role",
+            company="Hidden Inc",
+            description="Confidential description.",
+        )
+
+    def test_anonymous_gets_public_detail(self) -> None:
+        response = self.client.get(reverse("core:job_board_detail", args=[self.public_job.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "core/job_board_detail.html")
+        self.assertContains(response, "Full description of the public role.")
+
+    def test_anonymous_gets_404_on_private_posting(self) -> None:
+        response = self.client.get(reverse("core:job_board_detail", args=[self.private_job.pk]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_other_user_gets_404_on_private_posting(self) -> None:
+        self.client.force_login(self.other)
+        response = self.client.get(reverse("core:job_board_detail", args=[self.private_job.pk]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_owner_can_view_own_private_posting(self) -> None:
+        self.client.force_login(self.owner)
+        response = self.client.get(reverse("core:job_board_detail", args=[self.private_job.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Confidential description.")
+
+    def test_missing_posting_is_404(self) -> None:
+        response = self.client.get(reverse("core:job_board_detail", args=[99999]))
+        self.assertEqual(response.status_code, 404)
+
+
+@override_settings(MISTRAL_API_KEY=None)
+class JobBoardApplyTests(TestCase):
+    """Cycle 5: POST /jobs/<pk>/apply/ clones the public posting to the candidate
+    and generates their application package (demo mode in tests)."""
+
+    def setUp(self) -> None:
+        cache.clear()
+        self.owner = User.objects.create_user(username="alice", password=PASSWORD)
+        self.candidate = User.objects.create_user(username="bob", password=PASSWORD)
+        Profile.objects.create(
+            user=self.candidate,
+            headline="Backend engineer",
+            skills="Python, Django, SQL",
+            cv_text="Bob CV body",
+        )
+        self.public_job = JobPosting.objects.create(
+            owner=self.owner,
+            title="Public Platform Role",
+            company="Open Corp",
+            description="Full description of the public role.",
+            source_url="https://jobs.example.com/public",
+            is_public=True,
+        )
+        self.private_job = JobPosting.objects.create(
+            owner=self.owner,
+            title="Secret Internal Role",
+            company="Hidden Inc",
+            description="Confidential description.",
+        )
+
+    def apply_url(self, job: JobPosting) -> str:
+        return reverse("core:job_board_apply", args=[job.pk])
+
+    def test_anonymous_post_redirects_to_login_and_creates_nothing(self) -> None:
+        postings_before = JobPosting.objects.count()
+        response = self.client.post(self.apply_url(self.public_job))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("login"), response["Location"])
+        self.assertEqual(Application.objects.count(), 0)
+        self.assertEqual(JobPosting.objects.count(), postings_before)
+
+    def test_get_is_405_for_logged_in_user(self) -> None:
+        self.client.force_login(self.candidate)
+        response = self.client.get(self.apply_url(self.public_job))
+        self.assertEqual(response.status_code, 405)
+
+    def test_apply_clones_posting_and_generates_demo_package(self) -> None:
+        self.client.force_login(self.candidate)
+        response = self.client.post(self.apply_url(self.public_job))
+        application = Application.objects.get(user=self.candidate)
+        self.assertRedirects(response, reverse("core:application_detail", args=[application.pk]))
+        # The candidate gets their own private copy of the posting.
+        clone = application.job
+        self.assertEqual(clone.owner, self.candidate)
+        self.assertFalse(clone.is_public)
+        self.assertEqual(clone.title, self.public_job.title)
+        self.assertEqual(clone.company, self.public_job.company)
+        self.assertEqual(clone.source_url, self.public_job.source_url)
+        # Demo mode: package is present and clearly marked.
+        self.assertEqual(application.agent_mode, "demo")
+        self.assertIn("DEMO OUTPUT", application.tailored_summary)
+        self.assertIn("DEMO OUTPUT", application.cover_letter)
+        # The original public posting is untouched and still public.
+        self.public_job.refresh_from_db()
+        self.assertTrue(self.public_job.is_public)
+        self.assertEqual(self.public_job.owner, self.owner)
+
+    def test_second_apply_does_not_duplicate(self) -> None:
+        self.client.force_login(self.candidate)
+        self.client.post(self.apply_url(self.public_job))
+        response = self.client.post(self.apply_url(self.public_job))
+        self.assertEqual(Application.objects.filter(user=self.candidate).count(), 1)
+        self.assertEqual(
+            JobPosting.objects.filter(owner=self.candidate, title="Public Platform Role").count(),
+            1,
+        )
+        application = Application.objects.get(user=self.candidate)
+        self.assertRedirects(response, reverse("core:application_detail", args=[application.pk]))
+
+    def test_other_user_cannot_apply_to_private_posting(self) -> None:
+        self.client.force_login(self.candidate)
+        response = self.client.post(self.apply_url(self.private_job))
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(Application.objects.count(), 0)
+
+    def test_detail_page_has_apply_form_for_logged_in_user(self) -> None:
+        self.client.force_login(self.candidate)
+        response = self.client.get(reverse("core:job_board_detail", args=[self.public_job.pk]))
+        self.assertContains(response, f'action="{self.apply_url(self.public_job)}"')
+
+    def test_detail_page_invites_anonymous_to_log_in(self) -> None:
+        response = self.client.get(reverse("core:job_board_detail", args=[self.public_job.pk]))
+        self.assertContains(response, reverse("login"))

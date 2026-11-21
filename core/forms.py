@@ -9,7 +9,11 @@ from django.core.validators import MaxLengthValidator
 
 from core.models import Application, JobPosting, Profile
 
-INPUT_CLASS = "w-full rounded border border-slate-300 bg-white p-2 text-sm"
+INPUT_CLASS = (
+    "w-full rounded-lg border border-slate-300 bg-white/90 p-2.5 text-sm shadow-sm transition "
+    "placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 "
+    "focus:ring-indigo-200"
+)
 TEXTAREA_CLASS = INPUT_CLASS + " min-h-24"
 
 # Free-text inputs are length-capped at the form level (ASVS V5.2) so a paste

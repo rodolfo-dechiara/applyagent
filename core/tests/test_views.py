@@ -240,7 +240,9 @@ class ApplicationDetailTests(ViewTestCase):
         self.assertContains(response, "DEMO OUTPUT: letter")
         self.assertContains(response, "DEMO OUTPUT: Q?")
         self.assertContains(response, "DEMO OUTPUT: A")
-        self.assertContains(response, "70/100")
+        # The score is rendered as a gradient number + "/100" suffix.
+        self.assertContains(response, "70</span")
+        self.assertContains(response, "/100")
         self.assertContains(response, "DEMO OUTPUT: reason")
         self.assertContains(response, "DEMO OUTPUT: flag")
         self.assertContains(response, "demo")

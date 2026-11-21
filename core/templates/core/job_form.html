@@ -1,22 +1,32 @@
 {% extends "base.html" %}
 {% block title %}Paste a job posting — ApplyAgent{% endblock %}
 {% block content %}
-  <h1 class="mb-2 text-2xl font-bold">Paste a job posting</h1>
-  <p class="mb-4 text-sm text-slate-500">
+  <h1
+    class="bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 bg-clip-text text-3xl font-extrabold tracking-tight text-transparent"
+  >
+    Paste a job posting
+  </h1>
+  <p class="mt-2 mb-6 text-sm text-slate-500">
     Postings arrive by paste only — nothing is scraped. On save, the agent
     immediately drafts the full application package (in demo mode it produces
     clearly-marked placeholder output) and takes you to the review page.
   </p>
-  <form method="post" class="space-y-4 rounded border border-slate-200 bg-white p-6 shadow-sm">
+  <form
+    method="post"
+    class="space-y-4 rounded-2xl border border-slate-200/70 bg-white/80 p-6 shadow-xl shadow-indigo-600/5 backdrop-blur"
+  >
     {% csrf_token %}
     {% for field in form %}
       <div>
-        <label class="mb-1 block text-sm font-medium" for="{{ field.id_for_label }}">{{ field.label }}</label>
+        <label class="mb-1 block text-sm font-semibold text-slate-700" for="{{ field.id_for_label }}">{{ field.label }}</label>
         {{ field }}
-        {% for error in field.errors %}<p class="text-sm text-red-600">{{ error }}</p>{% endfor %}
+        {% for error in field.errors %}<p class="mt-1 text-sm text-red-600">{{ error }}</p>{% endfor %}
       </div>
     {% endfor %}
-    <button type="submit" class="rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+    <button
+      type="submit"
+      class="rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-600/25 transition hover:brightness-110"
+    >
       Save posting &amp; generate package
     </button>
   </form>

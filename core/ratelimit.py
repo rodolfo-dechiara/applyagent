@@ -52,6 +52,11 @@ def rate_limited(
     def decorator(view: F) -> F:
         @wraps(view)
         def wrapper(request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+            # Only state-changing attempts count: a GET of the login page must
+            # never consume the budget (otherwise the page itself could be
+            # 429'd for a victim IP).
+            if request.method != "POST":
+                return view(request, *args, **kwargs)
             identifier = ident(request) if ident is not None else client_ip(request)
             if not is_allowed(scope, identifier, default_limit, default_window):
                 logger.warning("rate_limit_hit scope=%s identifier=%s", scope, identifier)

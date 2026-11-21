@@ -50,6 +50,15 @@ class LoginRateLimitTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)  # different account, fresh bucket
 
+    def test_get_requests_do_not_consume_the_budget(self) -> None:
+        for _ in range(10):
+            response = self.client.get(reverse("login"))
+            self.assertEqual(response.status_code, 200)
+        # POSTs still get the full budget afterwards.
+        for _ in range(3):
+            self.assertEqual(self.login_attempt().status_code, 200)
+        self.assertEqual(self.login_attempt().status_code, 429)
+
     def test_rate_limit_hit_is_logged(self) -> None:
         for _ in range(3):
             self.login_attempt()

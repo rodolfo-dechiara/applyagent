@@ -178,6 +178,12 @@ LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "core:dashboard"
 LOGOUT_REDIRECT_URL = "login"
 
+# The login form's single field accepts the username OR the account email.
+AUTHENTICATION_BACKENDS = [
+    "core.backends.EmailOrUsernameModelBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
+
 # Feature flag: seed the public jobs board (/jobs/) with clearly-marked fake
 # postings so demos never show an empty board. Off by default; enable with
 # APPLYAGENT_DEMO_JOBS=true (e.g. on the demo deployment).

@@ -24,6 +24,7 @@ from core.demo_data import ensure_demo_jobs
 from core.forms import (
     ApplicationEditForm,
     JobPostingForm,
+    LoginForm,
     ProfileForm,
     RegisterForm,
     ResendVerificationForm,
@@ -152,7 +153,10 @@ class RegisterDoneView(TemplateView):
     name="dispatch",
 )
 class RateLimitedLoginView(auth_views.LoginView):
-    """Django's login view with per-IP + per-account rate limiting (ASVS V2.2.1)."""
+    """Django's login view with per-IP + per-account rate limiting (ASVS V2.2.1).
+    The form field accepts username or email (see core.backends)."""
+
+    authentication_form = LoginForm
 
 
 class VerifyEmailView(View):

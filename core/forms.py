@@ -3,7 +3,7 @@
 from typing import Any, ClassVar
 
 from django import forms
-from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.forms import AuthenticationForm, UserCreationForm, UsernameField
 from django.contrib.auth.models import User
 from django.core.validators import MaxLengthValidator
 
@@ -37,6 +37,12 @@ def _cap_lengths(form: forms.BaseForm, limits: dict[str, int]) -> None:
             field.max_length = max_length
             field.validators.append(MaxLengthValidator(max_length))
             field.widget.attrs["maxlength"] = str(max_length)
+
+
+class LoginForm(AuthenticationForm):
+    """The login field accepts the username or the account email."""
+
+    username = UsernameField(label="Username or email")
 
 
 class RegisterForm(UserCreationForm):

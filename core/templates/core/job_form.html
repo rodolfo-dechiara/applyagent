@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Paste a job posting — ApplyAgent{% endblock %}
+{% block content %}
+  <h1 class="mb-2 text-2xl font-bold">Paste a job posting</h1>
+  <p class="mb-4 text-sm text-slate-500">
+    Postings arrive by paste only — nothing is scraped. On save, the agent
+    immediately drafts the full application package (in demo mode it produces
+    clearly-marked placeholder output) and takes you to the review page.
+  </p>
+  <form method="post" class="space-y-4 rounded border border-slate-200 bg-white p-6 shadow-sm">
+    {% csrf_token %}
+    {% for field in form %}
+      <div>
+        <label class="mb-1 block text-sm font-medium" for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% for error in field.errors %}<p class="text-sm text-red-600">{{ error }}</p>{% endfor %}
+      </div>
+    {% endfor %}
+    <button type="submit" class="rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+      Save posting &amp; generate package
+    </button>
+  </form>
+{% endblock %}

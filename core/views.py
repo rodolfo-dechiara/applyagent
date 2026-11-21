@@ -1,1 +1,215 @@
-# Create your views here.
+"""Server-rendered views for the core app. All application views are login-only
+and filter by request.user, so another user's application is a 404."""
+
+from typing import Any
+
+from django.conf import settings
+from django.contrib import messages
+from django.contrib.auth import login
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import QuerySet
+from django.http import HttpRequest, HttpResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse_lazy
+from django.utils import timezone
+from django.utils.decorators import method_decorator
+from django.views.decorators.http import require_POST
+from django.views.generic import DetailView, FormView, TemplateView, UpdateView, View
+
+from agent.service import ApplicationPackage, GenerationError, generate_application_package
+from core.forms import ApplicationEditForm, JobPostingForm, ProfileForm, RegisterForm
+from core.models import Application, Profile
+
+
+def apply_package(application: Application, package: ApplicationPackage) -> None:
+    """Write a generated package onto an Application, including provenance."""
+    application.tailored_summary = package.tailored_summary
+    application.cover_letter = package.cover_letter
+    application.screening_answers = package.screening_answers
+    application.match_score = package.match_score
+    application.match_reasons = package.match_reasons
+    application.red_flags = package.red_flags
+    application.agent_mode = package.mode
+    application.agent_model = package.model
+    application.generated_at = timezone.now()
+    application.save()
+
+
+class RegisterView(FormView):
+    """Register with Django's auth machinery, then log the new user in."""
+
+    template_name = "registration/register.html"
+    form_class = RegisterForm
+    success_url = reverse_lazy("core:dashboard")
+
+    def form_valid(self, form: RegisterForm) -> HttpResponse:
+        user = form.save()
+        login(self.request, user)
+        return super().form_valid(form)
+
+
+class DashboardView(LoginRequiredMixin, TemplateView):
+    """The applications list, with an empty state and a profile nudge."""
+
+    template_name = "core/dashboard.html"
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        context["applications"] = Application.objects.filter(user=self.request.user).select_related(
+            "job"
+        )
+        context["has_profile"] = Profile.objects.filter(user=self.request.user).exists()
+        return context
+
+
+class ProfileView(LoginRequiredMixin, View):
+    """One view for the master profile: creates on first save, updates after."""
+
+    template_name = "core/profile_form.html"
+
+    def get_profile(self) -> Profile:
+        profile, _created = Profile.objects.get_or_create(user=self.request.user)
+        return profile
+
+    def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        form = ProfileForm(instance=self.get_profile())
+        return render(request, self.template_name, {"form": form})
+
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        form = ProfileForm(request.POST, instance=self.get_profile())
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Profile saved.")
+            return redirect("core:dashboard")
+        return render(request, self.template_name, {"form": form})
+
+
+class JobCreateView(LoginRequiredMixin, FormView):
+    """Paste a job posting; on save the package is generated immediately."""
+
+    template_name = "core/job_form.html"
+    form_class = JobPostingForm
+
+    def form_valid(self, form: JobPostingForm) -> HttpResponse:
+        job = form.save(commit=False)
+        job.owner = self.request.user
+        job.save()
+        profile, _created = Profile.objects.get_or_create(user=self.request.user)
+        try:
+            package = generate_application_package(profile, job)
+        except GenerationError as exc:
+            messages.error(
+                self.request,
+                f"Generation failed: {exc} You can regenerate from the application page.",
+            )
+            application = Application.objects.create(
+                job=job,
+                user=self.request.user,
+                agent_mode=(
+                    Application.AgentMode.MISTRAL
+                    if settings.MISTRAL_API_KEY
+                    else Application.AgentMode.DEMO
+                ),
+                agent_model=(str(settings.MISTRAL_MODEL) if settings.MISTRAL_API_KEY else "demo"),
+                generated_at=timezone.now(),
+            )
+        else:
+            application = Application.objects.create(job=job, user=self.request.user)
+            apply_package(application, package)
+            messages.success(
+                self.request,
+                "Application package generated — review and edit it; nothing is "
+                "final until you say so.",
+            )
+        return redirect("core:application_detail", pk=application.pk)
+
+
+class ApplicationMixin(LoginRequiredMixin):
+    """Base for application views: everything is scoped to the owner (else 404)."""
+
+    model = Application
+    request: HttpRequest  # set by View.setup() on every request
+
+    def get_queryset(self) -> QuerySet[Application]:
+        return Application.objects.filter(user=self.request.user).select_related("job")
+
+
+class ApplicationDetailView(ApplicationMixin, DetailView):
+    """The package sections, status buttons, and edit/delete/regenerate actions."""
+
+    template_name = "core/application_detail.html"
+    context_object_name = "application"
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        current = self.object.status
+        context["statuses"] = [c for c in Application.Status.choices if c[0] != current]
+        return context
+
+
+@method_decorator(require_POST, name="dispatch")
+class ApplicationRegenerateView(ApplicationMixin, View):
+    """POST-only regenerate; HTMX gets the swapped package partial, others a redirect."""
+
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        application = get_object_or_404(self.get_queryset(), pk=kwargs["pk"])
+        profile, _created = Profile.objects.get_or_create(user=request.user)
+        try:
+            package = generate_application_package(profile, application.job)
+        except GenerationError as exc:
+            messages.error(request, f"Regeneration failed: {exc}")
+        else:
+            apply_package(application, package)
+            messages.success(request, "Package regenerated — review it again.")
+        if request.headers.get("HX-Request") == "true":
+            return render(request, "core/_package.html", {"application": application})
+        return redirect("core:application_detail", pk=application.pk)
+
+
+class ApplicationEditView(ApplicationMixin, UpdateView):
+    """The human review pass over tailored_summary and cover_letter."""
+
+    template_name = "core/application_form.html"
+    form_class = ApplicationEditForm
+    context_object_name = "application"
+
+    def get_success_url(self) -> str:
+        return str(reverse_lazy("core:application_detail", kwargs={"pk": self.object.pk}))
+
+    def form_valid(self, form: ApplicationEditForm) -> HttpResponse:
+        messages.success(self.request, "Review saved — this is your edit, not the agent's.")
+        return super().form_valid(form)
+
+
+@method_decorator(require_POST, name="dispatch")
+class ApplicationStatusView(ApplicationMixin, View):
+    """POST-only status transitions, validated against the choices."""
+
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        application = get_object_or_404(self.get_queryset(), pk=kwargs["pk"])
+        new_status = request.POST.get("status", "")
+        valid = {value for value, _label in Application.Status.choices}
+        if new_status not in valid:
+            messages.error(request, f"Unknown status: {new_status!r}.")
+            return redirect("core:application_detail", pk=application.pk)
+        application.status = new_status
+        application.save(update_fields=["status", "updated_at"])
+        messages.success(request, f"Status updated to {application.get_status_display()}.")
+        return redirect("core:application_detail", pk=application.pk)
+
+
+class ApplicationDeleteView(ApplicationMixin, View):
+    """Delete removes the application and its job posting (cascade)."""
+
+    template_name = "core/application_confirm_delete.html"
+
+    def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        application = get_object_or_404(self.get_queryset(), pk=kwargs["pk"])
+        return render(request, self.template_name, {"application": application})
+
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        application = get_object_or_404(self.get_queryset(), pk=kwargs["pk"])
+        job = application.job
+        job.delete()  # cascades to the application
+        messages.success(request, "Application and posting deleted.")
+        return redirect("core:dashboard")

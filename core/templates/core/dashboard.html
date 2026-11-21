@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — ApplyAgent{% endblock %}
+{% block content %}
+  <div class="mb-6 flex items-center justify-between">
+    <h1 class="text-2xl font-bold">Your applications</h1>
+    <a
+      href="{% url 'core:job_new' %}"
+      class="rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+      >Paste a job posting</a
+    >
+  </div>
+
+  {% if not has_profile %}
+    <div class="mb-6 rounded border border-amber-300 bg-amber-50 p-4 text-sm">
+      You haven't created your profile yet — the agent drafts everything from
+      it.
+      <a href="{% url 'core:profile' %}" class="font-semibold underline"
+        >Create your profile</a
+      >
+    </div>
+  {% endif %}
+
+  {% if applications %}
+    <ul class="space-y-3">
+      {% for application in applications %}
+        <li class="rounded border border-slate-200 bg-white p-4 shadow-sm">
+          <a
+            href="{% url 'core:application_detail' pk=application.pk %}"
+            class="font-semibold hover:underline"
+            >{{ application.job.title }}</a
+          >
+          <span class="text-slate-500">at {{ application.job.company }}</span>
+          <div class="mt-1 flex flex-wrap items-center gap-2 text-sm">
+            <span
+              class="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium"
+              >{{ application.get_status_display }}</span
+            >
+            {% if application.match_score is not None %}
+              <span class="text-xs text-slate-500"
+                >match {{ application.match_score }}/100</span
+              >
+            {% endif %}
+            <span class="text-xs text-slate-400"
+              >{{ application.agent_mode }} mode</span
+            >
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <div class="rounded border border-dashed border-slate-300 bg-white p-8 text-center text-slate-500">
+      No applications yet. Paste a job posting and the agent will draft the
+      full package for you to review.
+    </div>
+  {% endif %}
+{% endblock %}

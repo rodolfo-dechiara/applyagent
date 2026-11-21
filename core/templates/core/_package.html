@@ -1,0 +1,50 @@
+{# Swapped in place by the HTMX regenerate button (hx-target="#package" hx-swap="outerHTML"). #}
+<section id="package" class="space-y-4">
+  <p class="text-xs text-slate-500">
+    Drafted by {{ application.agent_mode }} mode
+    {% if application.agent_model %}(model {{ application.agent_model }}){% endif %}
+    {% if application.generated_at %}at {{ application.generated_at }}{% endif %}.
+    Draft only — the agent drafts, you decide; nothing is submitted anywhere.
+  </p>
+
+  <section class="rounded border border-slate-200 bg-white p-4 shadow-sm">
+    <h2 class="mb-1 text-lg font-semibold">Tailored summary</h2>
+    <p class="whitespace-pre-line text-sm">{{ application.tailored_summary }}</p>
+  </section>
+
+  <section class="rounded border border-slate-200 bg-white p-4 shadow-sm">
+    <h2 class="mb-1 text-lg font-semibold">Cover letter</h2>
+    <p class="whitespace-pre-line text-sm">{{ application.cover_letter }}</p>
+  </section>
+
+  <section class="rounded border border-slate-200 bg-white p-4 shadow-sm">
+    <h2 class="mb-1 text-lg font-semibold">Screening answers</h2>
+    {% for qa in application.screening_answers %}
+      <div class="mt-2">
+        <p class="text-sm font-medium">{{ qa.question }}</p>
+        <p class="whitespace-pre-line text-sm text-slate-700">{{ qa.answer }}</p>
+      </div>
+    {% empty %}
+      <p class="text-sm text-slate-500">No screening answers drafted.</p>
+    {% endfor %}
+  </section>
+
+  <section class="rounded border border-slate-200 bg-white p-4 shadow-sm">
+    <h2 class="mb-1 text-lg font-semibold">Match score</h2>
+    {% if application.match_score is not None %}
+      <p class="text-sm"><span class="text-2xl font-bold">{{ application.match_score }}/100</span></p>
+    {% else %}
+      <p class="text-sm text-slate-500">No score drafted.</p>
+    {% endif %}
+    <ul class="mt-1 list-disc pl-5 text-sm text-slate-700">
+      {% for reason in application.match_reasons %}<li>{{ reason }}</li>{% endfor %}
+    </ul>
+  </section>
+
+  <section class="rounded border border-amber-200 bg-amber-50 p-4 shadow-sm">
+    <h2 class="mb-1 text-lg font-semibold">Red flags</h2>
+    <ul class="list-disc pl-5 text-sm text-amber-900">
+      {% for flag in application.red_flags %}<li>{{ flag }}</li>{% empty %}<li>None drafted.</li>{% endfor %}
+    </ul>
+  </section>
+</section>

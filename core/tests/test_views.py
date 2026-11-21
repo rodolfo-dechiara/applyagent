@@ -34,7 +34,9 @@ class ViewTestCase(TestCase):
             source_url="https://jobs.example.com/1",
         )
 
-    def make_application(self, user: User | None = None, job: JobPosting | None = None) -> Application:
+    def make_application(
+        self, user: User | None = None, job: JobPosting | None = None
+    ) -> Application:
         user = user or self.user
         job = job or self.make_job(owner=user)
         return Application.objects.create(
@@ -56,7 +58,7 @@ class DashboardTests(ViewTestCase):
         self.client.logout()
         response = self.client.get(reverse("core:dashboard"))
         self.assertEqual(response.status_code, 302)
-        self.assertIn(reverse("login"), response.url)
+        self.assertIn(reverse("login"), response["Location"])
 
     def test_empty_state_when_no_applications(self) -> None:
         self.make_profile()
@@ -100,7 +102,7 @@ class RegisterAndLoginTests(TestCase):
             },
         )
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("core:dashboard"))
+        self.assertEqual(response["Location"], reverse("core:dashboard"))
         user = User.objects.get(username="newbie")
         self.assertEqual(int(self.client.session["_auth_user_id"]), user.pk)
 
@@ -118,11 +120,9 @@ class RegisterAndLoginTests(TestCase):
 
     def test_login_with_django_auth_view(self) -> None:
         User.objects.create_user(username="bob", password=PASSWORD)
-        response = self.client.post(
-            reverse("login"), {"username": "bob", "password": PASSWORD}
-        )
+        response = self.client.post(reverse("login"), {"username": "bob", "password": PASSWORD})
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("core:dashboard"))
+        self.assertEqual(response["Location"], reverse("core:dashboard"))
 
 
 class ProfileTests(ViewTestCase):
@@ -193,7 +193,7 @@ class JobPasteTests(ViewTestCase):
         job = JobPosting.objects.get(title="Django developer")
         app = Application.objects.get(job=job)
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("core:application_detail", args=[app.pk]))
+        self.assertEqual(response["Location"], reverse("core:application_detail", args=[app.pk]))
         self.assertEqual(job.owner, self.user)
         self.assertEqual(app.user, self.user)
         self.assertEqual(app.status, Application.Status.DRAFT)
@@ -203,7 +203,7 @@ class JobPasteTests(ViewTestCase):
         self.assertTrue(app.screening_answers)
         self.assertIsNotNone(app.match_score)
         self.assertIsNotNone(app.generated_at)
-        follow = self.client.get(response.url)
+        follow = self.client.get(response["Location"])
         self.assertEqual(follow.status_code, 200)
 
     def test_paste_sends_review_message(self) -> None:
@@ -282,9 +282,7 @@ class RegenerateTests(ViewTestCase):
         app = self.make_application()
         response = self.client.post(reverse("core:application_regenerate", args=[app.pk]))
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(
-            response.url, reverse("core:application_detail", args=[app.pk])
-        )
+        self.assertEqual(response["Location"], reverse("core:application_detail", args=[app.pk]))
 
     def test_get_is_not_allowed(self) -> None:
         app = self.make_application()
@@ -310,7 +308,7 @@ class EditTests(ViewTestCase):
             },
         )
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("core:application_detail", args=[app.pk]))
+        self.assertEqual(response["Location"], reverse("core:application_detail", args=[app.pk]))
         app.refresh_from_db()
         self.assertEqual(app.tailored_summary, "Human-edited summary.")
         self.assertEqual(app.cover_letter, "Human-edited letter.")
@@ -363,6 +361,6 @@ class DeleteTests(ViewTestCase):
         job_pk = app.job.pk
         response = self.client.post(reverse("core:application_delete", args=[app.pk]))
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("core:dashboard"))
+        self.assertEqual(response["Location"], reverse("core:dashboard"))
         self.assertFalse(Application.objects.filter(pk=app.pk).exists())
         self.assertFalse(JobPosting.objects.filter(pk=job_pk).exists())

@@ -9,7 +9,7 @@ from datetime import timedelta
 from django.contrib.auth.models import User
 from django.core import mail
 from django.core.cache import cache
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -43,6 +43,29 @@ class RegistrationVerificationTests(TestCase):
         self.assertEqual(message.to, ["newbie@example.com"])
         self.assertIn("/accounts/verify/", message.body)
         self.assertTrue(EmailVerification.objects.filter(user__username="newbie").exists())
+
+    @override_settings(
+        EMAIL_BACKEND="django.core.mail.backends.smtp.EmailBackend",
+        EMAIL_HOST="127.0.0.1",
+        EMAIL_PORT=1,  # nothing listening: connection refused
+        EMAIL_USE_TLS=False,
+    )
+    def test_register_survives_smtp_failure_with_friendly_error(self) -> None:
+        response = self.client.post(
+            reverse("register"),
+            {
+                "username": "newbie",
+                "email": "newbie@example.com",
+                "password1": PASSWORD,
+                "password2": PASSWORD,
+            },
+            follow=True,
+        )
+        # No 500: the account exists (inactive) and the user gets an error message.
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.get(username="newbie").is_active)
+        messages = [str(m) for m in response.context["messages"]]
+        self.assertTrue(any("could not send" in m.lower() for m in messages))
 
     def test_register_requires_email(self) -> None:
         response = self.client.post(

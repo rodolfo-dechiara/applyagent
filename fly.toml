@@ -19,6 +19,12 @@ primary_region = "fra"
   # SQLite lives on the mounted volume, not in the ephemeral image fs.
   APPLYAGENT_DB = "/data/db.sqlite3"
   # MISTRAL_API_KEY is set via `fly secrets set` (optional: demo mode without it).
+  # Outbound email goes to the relay-only Postfix app over Fly's private
+  # network (no public IP, no auth needed inside the org).
+  EMAIL_HOST = "applyagent-mail.internal"
+  EMAIL_PORT = "25"
+  EMAIL_USE_TLS = "false"
+  DEFAULT_FROM_EMAIL = "ApplyAgent <noreply@applyagents.fly.dev>"
 
 [processes]
   # No release_command: a Fly volume attaches to a single machine, so

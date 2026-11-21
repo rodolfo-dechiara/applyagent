@@ -1,0 +1,29 @@
+# Relay-only Postfix for ApplyAgent on Fly's private 6PN.
+# No public inbound: the app has no [services], so no public IP is allocated.
+
+# Log to stdout so `fly logs` captures everything.
+maillog_file = /dev/stdout
+
+myhostname = applyagent-mail.internal
+mydomain = applyagents.fly.dev
+myorigin = $mydomain
+inet_interfaces = all
+inet_protocols = all
+mydestination = $myhostname, localhost.$mydomain, localhost
+
+# Trust only the Fly private network (fdaa::/8 6PN + container-local ranges)
+# and localhost; relay for those, reject everything else (no open relay).
+# NOTE: Postfix requires brackets for IPv6 blocks here: [fdaa::]/8.
+mynetworks = 127.0.0.0/8 [::1]/128 172.16.0.0/12 [fdaa::]/8
+smtpd_recipient_restrictions = permit_mynetworks, reject_unauth_destination
+smtpd_helo_required = yes
+smtpd_client_connection_count_limit = 20
+
+# Outbound: opportunistic TLS, deliver straight to the recipient's MX.
+smtp_tls_security_level = may
+smtp_tls_note_starttls_offer = yes
+message_size_limit = 10485760
+
+# Small demo queue.
+queue_run_delay = 30s
+maximal_queue_lifetime = 1d

@@ -33,8 +33,12 @@ from core.security import client_ip
 from core.security import logger as security_logger
 
 
-def send_verification_email(request: HttpRequest, user: User) -> EmailVerification:
-    """Create/rotate the token and email the verification link to the user."""
+def send_verification_email(request: HttpRequest, user: User) -> bool:
+    """Create/rotate the token and email the verification link.
+
+    Returns False (and logs) instead of raising when the mail backend fails,
+    so a broken SMTP relay degrades to a friendly error message, not a 500.
+    """
     verification = EmailVerification.create_for(user)
     url = request.build_absolute_uri(reverse("verify_email", args=[verification.token]))
     subject = render_to_string(
@@ -48,9 +52,15 @@ def send_verification_email(request: HttpRequest, user: User) -> EmailVerificati
             "ttl_hours": int(EMAIL_VERIFICATION_TTL.total_seconds() // 3600),
         },
     )
-    send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, [user.email])
+    try:
+        send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, [user.email])
+    except Exception:
+        security_logger.exception(
+            "verification_email_failed user=%s ip=%s", user.username, client_ip(request)
+        )
+        return False
     security_logger.info("verification_email_sent user=%s ip=%s", user.username, client_ip(request))
-    return verification
+    return True
 
 
 def apply_package(application: Application, package: ApplicationPackage) -> None:
@@ -84,15 +94,22 @@ class RegisterView(FormView):
         user = form.save(commit=False)
         user.is_active = False
         user.save()
-        send_verification_email(self.request, user)
+        sent = send_verification_email(self.request, user)
         security_logger.info(
             "register user=%s ip=%s (unverified)", user.username, client_ip(self.request)
         )
-        messages.info(
-            self.request,
-            "Account created — we sent a verification link to your email. "
-            "You can log in once you click it.",
-        )
+        if sent:
+            messages.info(
+                self.request,
+                "Account created — we sent a verification link to your email. "
+                "You can log in once you click it.",
+            )
+        else:
+            messages.error(
+                self.request,
+                "Account created, but we could not send the verification email — "
+                "please try resending it from the login page.",
+            )
         return super().form_valid(form)
 
 
@@ -156,7 +173,12 @@ class ResendVerificationView(FormView):
         email = form.cleaned_data["email"]
         user = User.objects.filter(email__iexact=email, is_active=False).first()
         if user is not None:
-            send_verification_email(self.request, user)
+            if not send_verification_email(self.request, user):
+                messages.error(
+                    self.request,
+                    "We could not send the verification email right now — please try again later.",
+                )
+                return super().form_valid(form)
         else:
             security_logger.info("verification_resend_noop ip=%s", client_ip(self.request))
         messages.info(

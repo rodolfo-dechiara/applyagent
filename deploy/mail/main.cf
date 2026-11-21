@@ -28,6 +28,8 @@ smtp_tls_note_starttls_offer = yes
 # not via raw DNS MX queries, and public DNS over UDP/TCP 53 is blocked.
 # "native" makes Postfix use getaddrinfo (A/AAAA, implicit-MX style).
 disable_dns_lookups = yes
+# Prefer IPv4 for outbound SMTP: Fly IPv6 egress on port 25 is unreliable.
+smtp_address_preference = ipv4
 message_size_limit = 10485760
 
 # Small demo queue.

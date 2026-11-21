@@ -30,6 +30,27 @@ class ModernUiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "bg-gradient-to-r")
 
+    def test_form_controls_are_full_width_with_visible_focus_outline(self) -> None:
+        # Global CSS in base.html styles ALL inputs (Django's auth forms don't
+        # carry Tailwind classes): full width + a visible indigo focus outline.
+        response = self.client.get(reverse("login"))
+        html = response.content.decode()
+        self.assertIn('input[type="password"]', html)
+        self.assertIn("width: 100%", html)
+        self.assertIn("outline:", html)
+        self.assertIn(":focus", html)
+
+    def test_navbar_has_title_left_and_actions_right(self) -> None:
+        response = self.client.get(reverse("login"))
+        html = response.content.decode()
+        self.assertIn("justify-between", html)  # logo left, log in/register right
+        # The gradient logo link comes before the auth action links in the navbar.
+        logo_marker = "bg-clip-text text-lg font-extrabold"
+        login_link = f'href="{reverse("login")}"'
+        register_link = f'href="{reverse("register")}"'
+        self.assertLess(html.index(logo_marker), html.index(login_link))
+        self.assertLess(html.index(login_link), html.index(register_link))
+
     def test_application_detail_uses_gradient_title(self) -> None:
         user = User.objects.create_user(username="alice", password=PASSWORD)
         from core.models import Application, JobPosting

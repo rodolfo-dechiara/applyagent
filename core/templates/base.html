@@ -24,6 +24,43 @@
       ::selection {
         background: #c7d2fe;
       }
+      /* All form controls (including Django's auth forms, whose widgets carry no
+         Tailwind classes) fill their container and get a visible focus outline. */
+      input[type="text"],
+      input[type="password"],
+      input[type="email"],
+      input[type="url"],
+      input[type="number"],
+      textarea,
+      select {
+        width: 100%;
+        border-radius: 0.5rem;
+        border: 1px solid #cbd5e1;
+        background: rgba(255, 255, 255, 0.9);
+        padding: 0.625rem 0.75rem;
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+        color: #0f172a;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+        transition:
+          border-color 0.15s,
+          box-shadow 0.15s;
+      }
+      textarea {
+        min-height: 6rem;
+      }
+      input:focus,
+      textarea:focus,
+      select:focus {
+        outline: 2px solid #4f46e5;
+        outline-offset: 1px;
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+      }
+      input::placeholder,
+      textarea::placeholder {
+        color: #94a3b8;
+      }
     </style>
   </head>
   <body

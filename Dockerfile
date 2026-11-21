@@ -17,9 +17,13 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --no-dev --no-install-project
 
 COPY . .
-RUN uv pip install --no-cache gunicorn
+RUN uv pip install --no-cache gunicorn \
+    && chmod +x /app/entrypoint.sh
 
 ENV PATH="/app/.venv/bin:$PATH"
+
+# Migrations run on the app machine (the only one with the /data volume).
+ENTRYPOINT ["/app/entrypoint.sh"]
 
 EXPOSE 8080
 # One worker: SQLite does not like multi-process writes. Threads for I/O.

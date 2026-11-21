@@ -86,7 +86,7 @@ fly apps create applyagent                            # if the name is taken, pi
 fly volumes create data --size 1 --region fra         # persistent SQLite
 fly secrets set DJANGO_SECRET_KEY="$(openssl rand -hex 32)"
 fly secrets set MISTRAL_API_KEY=...                   # optional; without it the app runs in demo mode
-fly deploy                                            # builds the image, runs `manage.py migrate` as release_command
+fly deploy                                            # builds the image; entrypoint.sh runs migrate, then gunicorn
 ```
 
 The app then answers on `https://applyagent.fly.dev` (HTTPS is forced by Fly;

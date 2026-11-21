@@ -1,12 +1,12 @@
 # Fly.io deployment config for ApplyAgent.
-# Deploy with:  fly auth login && fly apps create applyagent && \
+# Deploy with:  fly auth login && fly apps create applyagents && \
 #   fly volumes create data --size 1 --region fra && \
 #   fly secrets set DJANGO_SECRET_KEY="$(openssl rand -hex 32)" && \
 #   fly deploy
 # If the app name "applyagent" is taken, pick another and update
 # `app` below plus the two DJANGO_* URLs in [env] (the app answers on
 # https://<app>.fly.dev).
-app = "applyagent"
+app = "applyagents"
 primary_region = "fra"
 
 [build]
@@ -14,15 +14,15 @@ primary_region = "fra"
 
 [env]
   DEBUG = "False"
-  DJANGO_ALLOWED_HOSTS = "applyagent.fly.dev"
-  DJANGO_CSRF_TRUSTED_ORIGINS = "https://applyagent.fly.dev"
+  DJANGO_ALLOWED_HOSTS = "applyagents.fly.dev"
+  DJANGO_CSRF_TRUSTED_ORIGINS = "https://applyagents.fly.dev"
   # SQLite lives on the mounted volume, not in the ephemeral image fs.
   APPLYAGENT_DB = "/data/db.sqlite3"
   # MISTRAL_API_KEY is set via `fly secrets set` (optional: demo mode without it).
 
 [processes]
-  # Runs once per deploy, before the new version goes live.
-  release_command = "python manage.py migrate"
+  # No release_command: a Fly volume attaches to a single machine, so
+  # migrations run inside the app process via entrypoint.sh instead.
   app = "gunicorn config.wsgi:application --bind 0.0.0.0:8080 --workers 1 --threads 4"
 
 [http_service]

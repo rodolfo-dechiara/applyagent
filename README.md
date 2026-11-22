@@ -65,6 +65,37 @@ system account. Seeding is idempotent and a no-op when the flag is off —
 so CI and local dev never see fake data. On Fly.io:
 `fly secrets set APPLYAGENT_DEMO_JOBS=true -a applyagents`.
 
+## Roles, AI match, and sending applications
+
+**Roles.** Registration asks for an account type: **candidate** (default) or
+**recruiter** (`Account.role`). A recruiter who pastes a job posting publishes
+it to the public board (no application is generated for them); a candidate
+pastes a posting to get their own application package.
+
+**AI match score.** Logged-in users see a per-posting score badge on the board
+(`GET /jobs/<uid>/score/`, loaded lazily behind a skeleton shimmer; anonymous
+visitors see a "log in" hint instead). Opening a posting loads a detailed AI
+insight (`GET /jobs/<uid>/insight/`, rate-limited) with score, reasons, red
+flags and screening-answer count, plus a shining **✨ Apply** button. Apply
+clones the posting privately to the candidate, generates the full package and
+opens the **preview** (application detail) — nothing is sent yet.
+
+**Approve & send.** The preview page has an "Approve & send ✨" button
+(`POST /applications/<uid>/send/`, owner-scoped). For board postings it
+renders the candidate's CV to a **PDF** (stdlib-only writer in `core/pdf.py`),
+emails the recruiter who published the offer — presentation (summary, cover
+letter, score, reasons, red flags) in the body, `CV_<user>.pdf` attached —
+and marks the application `submitted`. Double-send is refused; if the email
+fails the application stays un-submitted; candidate-pasted postings are just
+marked `submitted` locally. Outbound mail goes through the self-hosted
+Postfix relay on Fly.io (`applyagent-mail`, DKIM-signed as
+`noreply@youre-hired.eu`).
+
+**Crockford IDs.** Every public URL uses a Crockford base32 id — 120 bits of
+randomness encoded as 24 chars plus 1 checksum char (25 total, alphabet
+`0-9A-HJ-KMNP-TV-Z` + checksum symbols `*~$@+`) — instead of serial integers
+(`core/ids.py`, `<uid:uid>` path converter). Integer PKs stay internal.
+
 ## Development
 
 ```bash

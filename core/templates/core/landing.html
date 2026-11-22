@@ -1,22 +1,27 @@
 {% extends "base.html" %}
 {% block title %}You're Hired — the agent drafts, you decide{% endblock %}
 {% block content %}
-  <!-- Hero -->
-  <section class="py-10 text-center sm:py-16">
+  <!-- Hero (reveals on load) -->
+  <section class="py-10 text-center sm:py-16" x-data="{ shown: false }" x-init="setTimeout(() => shown = true, 80)">
     <p
-      class="mx-auto mb-4 inline-block rounded-full border border-indigo-200/70 bg-white/70 px-3 py-1 text-xs font-semibold text-indigo-700 shadow-sm backdrop-blur"
+      class="reveal mx-auto mb-4 inline-block rounded-full border border-indigo-200/70 bg-white/70 px-3 py-1 text-xs font-semibold text-indigo-700 shadow-sm backdrop-blur"
+      :class="shown && 'revealed'"
     >
       Candidate-side job applications, drafted by an agent
     </p>
     <h1
-      class="mx-auto max-w-3xl bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 bg-clip-text text-4xl font-extrabold tracking-tight text-transparent sm:text-6xl"
+      class="reveal mx-auto max-w-3xl bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 bg-clip-text text-4xl font-extrabold tracking-tight text-transparent sm:text-6xl"
+      :class="shown && 'revealed'"
+      style="transition-delay: 120ms"
     >
       You're Hired
     </h1>
 
     <!-- CTA card directly below the brand heading -->
     <div
-      class="mx-auto mt-8 max-w-2xl rounded-3xl border border-indigo-200/70 bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 p-8 text-white shadow-xl shadow-indigo-600/25"
+      class="reveal mx-auto mt-8 max-w-2xl rounded-3xl border border-indigo-200/70 bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 p-8 text-white shadow-xl shadow-indigo-600/25"
+      :class="shown && 'revealed'"
+      style="transition-delay: 260ms"
     >
       <h2 class="text-2xl font-extrabold tracking-tight sm:text-3xl">Ready when you are.</h2>
       <p class="mt-2 text-sm text-indigo-100">
@@ -45,23 +50,36 @@
       </div>
     </div>
 
-    <p class="mx-auto mt-8 max-w-xl text-base text-slate-600 sm:text-lg">
+    <p
+      class="reveal mx-auto mt-8 max-w-xl text-base text-slate-600 sm:text-lg"
+      :class="shown && 'revealed'"
+      style="transition-delay: 400ms"
+    >
       Paste a job posting. The agent drafts your tailored summary, cover letter,
       screening answers, match score and red flags —
       <span class="font-semibold text-slate-800">you review and edit everything; nothing is submitted without you.</span>
     </p>
   </section>
 
-  <!-- Features -->
-  <section class="grid gap-4 py-6 sm:grid-cols-3">
-    <div class="rounded-2xl border border-slate-200/70 bg-white/80 p-5 shadow-md shadow-slate-900/5 backdrop-blur">
+  <!-- Features (scroll-reveal, staggered) -->
+  <section id="features" class="grid gap-4 py-6 sm:grid-cols-3">
+    <div
+      x-data
+      x-intersect="$el.classList.add('revealed')"
+      class="reveal rounded-2xl border border-slate-200/70 bg-white/80 p-5 shadow-md shadow-slate-900/5 backdrop-blur"
+    >
       <div class="mb-2 text-2xl">📋</div>
       <h2 class="font-bold text-slate-800">Paste any posting</h2>
       <p class="mt-1 text-sm text-slate-600">
         No scraping, no job-board accounts — postings arrive by paste, or pick one from the public board.
       </p>
     </div>
-    <div class="rounded-2xl border border-slate-200/70 bg-white/80 p-5 shadow-md shadow-slate-900/5 backdrop-blur">
+    <div
+      x-data
+      x-intersect="$el.classList.add('revealed')"
+      class="reveal rounded-2xl border border-slate-200/70 bg-white/80 p-5 shadow-md shadow-slate-900/5 backdrop-blur"
+      style="transition-delay: 140ms"
+    >
       <div class="mb-2 text-2xl">✨</div>
       <h2 class="font-bold text-slate-800">The agent drafts the package</h2>
       <p class="mt-1 text-sm text-slate-600">
@@ -69,7 +87,12 @@
         for anything your profile doesn't support. It never invents facts about you.
       </p>
     </div>
-    <div class="rounded-2xl border border-slate-200/70 bg-white/80 p-5 shadow-md shadow-slate-900/5 backdrop-blur">
+    <div
+      x-data
+      x-intersect="$el.classList.add('revealed')"
+      class="reveal rounded-2xl border border-slate-200/70 bg-white/80 p-5 shadow-md shadow-slate-900/5 backdrop-blur"
+      style="transition-delay: 280ms"
+    >
       <div class="mb-2 text-2xl">🧑‍⚖️</div>
       <h2 class="font-bold text-slate-800">You review, you decide</h2>
       <p class="mt-1 text-sm text-slate-600">
@@ -78,25 +101,41 @@
     </div>
   </section>
 
-  <!-- How it works -->
+  <!-- How it works (scroll-reveal, staggered) -->
   <section class="py-6">
     <h2
-      class="bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 bg-clip-text text-center text-2xl font-extrabold tracking-tight text-transparent sm:text-3xl"
+      x-data
+      x-intersect="$el.classList.add('revealed')"
+      class="reveal bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 bg-clip-text text-center text-2xl font-extrabold tracking-tight text-transparent sm:text-3xl"
     >
       How it works
     </h2>
     <ol class="mx-auto mt-6 grid max-w-3xl gap-4 sm:grid-cols-3">
-      <li class="rounded-2xl border border-slate-200/70 bg-white/80 p-5 text-sm shadow-md shadow-slate-900/5 backdrop-blur">
+      <li
+        x-data
+        x-intersect="$el.classList.add('revealed')"
+        class="reveal rounded-2xl border border-slate-200/70 bg-white/80 p-5 text-sm shadow-md shadow-slate-900/5 backdrop-blur"
+      >
         <span class="font-bold text-indigo-600">1.</span>
         <span class="ml-1 font-semibold text-slate-800">Build your master profile once</span>
         <p class="mt-1 text-slate-600">Skills, experience, education, CV — the agent drafts everything from it.</p>
       </li>
-      <li class="rounded-2xl border border-slate-200/70 bg-white/80 p-5 text-sm shadow-md shadow-slate-900/5 backdrop-blur">
+      <li
+        x-data
+        x-intersect="$el.classList.add('revealed')"
+        class="reveal rounded-2xl border border-slate-200/70 bg-white/80 p-5 text-sm shadow-md shadow-slate-900/5 backdrop-blur"
+        style="transition-delay: 140ms"
+      >
         <span class="font-bold text-indigo-600">2.</span>
         <span class="ml-1 font-semibold text-slate-800">Paste a job or pick one from the board</span>
         <p class="mt-1 text-slate-600">The full package is generated immediately, with provenance (demo or Mistral).</p>
       </li>
-      <li class="rounded-2xl border border-slate-200/70 bg-white/80 p-5 text-sm shadow-md shadow-slate-900/5 backdrop-blur">
+      <li
+        x-data
+        x-intersect="$el.classList.add('revealed')"
+        class="reveal rounded-2xl border border-slate-200/70 bg-white/80 p-5 text-sm shadow-md shadow-slate-900/5 backdrop-blur"
+        style="transition-delay: 280ms"
+      >
         <span class="font-bold text-indigo-600">3.</span>
         <span class="ml-1 font-semibold text-slate-800">Review, edit, track</span>
         <p class="mt-1 text-slate-600">Your edits are yours. Move each application from draft to offer.</p>
@@ -104,9 +143,13 @@
     </ol>
   </section>
 
-  <!-- Latest on the board -->
+  <!-- Latest on the board (scroll-reveal) -->
   <section class="py-6">
-    <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+    <div
+      x-data
+      x-intersect="$el.classList.add('revealed')"
+      class="reveal mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+    >
       <h2
         class="bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 bg-clip-text text-2xl font-extrabold tracking-tight text-transparent sm:text-3xl"
       >
@@ -128,7 +171,9 @@
       <ul class="space-y-3">
         {% for posting in latest_postings %}
           <li
-            class="rounded-2xl border border-slate-200/70 bg-white/80 p-4 shadow-md shadow-slate-900/5 backdrop-blur transition hover:-translate-y-0.5 hover:shadow-lg"
+            x-data
+            x-intersect="$el.classList.add('revealed')"
+            class="reveal rounded-2xl border border-slate-200/70 bg-white/80 p-4 shadow-md shadow-slate-900/5 backdrop-blur transition hover:-translate-y-0.5 hover:shadow-lg"
           >
             <a
               href="{% url 'core:job_board_detail' pk=posting.pk %}"

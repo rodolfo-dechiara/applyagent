@@ -73,6 +73,18 @@ class LandingPageTests(TestCase):
         self.assertLess(heading, cta)
         self.assertLess(cta, tagline)  # card is above the tagline, not at the bottom
 
+    def test_landing_uses_scroll_reveal_animations(self) -> None:
+        html = self.client.get("/").content.decode()
+        self.assertIn("x-intersect", html)  # Alpine intersect plugin drives reveal
+        self.assertIn("reveal", html)  # animated elements carry the reveal class
+        self.assertIn('id="features"', html)  # below-fold section is animated
+
+    def test_base_loads_intersect_plugin_and_reveal_css_with_reduced_motion_guard(self) -> None:
+        html = self.client.get("/").content.decode()
+        self.assertIn("@alpinejs/intersect", html)  # CDN plugin, allowed by CSP
+        self.assertIn(".reveal", html)  # transition styles
+        self.assertIn("prefers-reduced-motion", html)  # accessibility guard
+
     def test_dashboard_moved_to_dashboard_path(self) -> None:
         self.assertEqual(reverse("core:dashboard"), "/dashboard/")
         response = self.client.get(reverse("core:dashboard"))

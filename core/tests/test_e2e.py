@@ -180,6 +180,24 @@ class EndToEndTests(LiveServerTestCase):
                     assert_no_horizontal_overflow(page)
             browser.close()
 
+    def test_landing_scroll_reveal_animation(self) -> None:
+        """Below-fold cards start hidden and reveal (opacity -> 1) on scroll."""
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            page = browser.new_page(viewport=DESKTOP)
+            base = self.live_server_url
+            page.goto(f"{base}/", wait_until="domcontentloaded")
+            card = page.locator("#features .reveal").first
+            card.wait_for(state="attached")
+            before = float(card.evaluate("el => getComputedStyle(el).opacity"))
+            assert before < 0.5, f"card should start hidden, got opacity {before}"
+            card.scroll_into_view_if_needed()
+            page.wait_for_selector("#features .reveal.revealed", timeout=5000)
+            after = float(card.evaluate("el => getComputedStyle(el).opacity"))
+            assert after > 0.9, f"card should be revealed after scroll, got opacity {after}"
+            assert_no_horizontal_overflow(page)
+            browser.close()
+
     @override_settings(MISTRAL_API_KEY=None, DEMO_JOBS_ENABLED=True)
     def test_mobile_board_demo_flag_apply_flow(self) -> None:
         """With the demo flag on, the board shows marked fake postings and a

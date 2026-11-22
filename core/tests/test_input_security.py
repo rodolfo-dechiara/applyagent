@@ -44,7 +44,7 @@ class OutputEncodingTests(TestCase):
         self.assertContains(response, "&lt;img")
 
     def test_application_detail_escapes_all_user_content(self) -> None:
-        response = self.client.get(reverse("core:application_detail", args=[self.app.pk]))
+        response = self.client.get(reverse("core:application_detail", args=[self.app.uid]))
         self.assertEqual(response.status_code, 200)
         self.assert_escaped(response)
 
@@ -72,10 +72,10 @@ class OutputEncodingTests(TestCase):
 
     def test_edit_saved_payload_is_escaped_on_detail(self) -> None:
         self.client.post(
-            reverse("core:application_edit", args=[self.app.pk]),
+            reverse("core:application_edit", args=[self.app.uid]),
             {"tailored_summary": XSS, "cover_letter": XSS_IMG},
         )
-        response = self.client.get(reverse("core:application_detail", args=[self.app.pk]))
+        response = self.client.get(reverse("core:application_detail", args=[self.app.uid]))
         self.assert_escaped(response)
 
 
@@ -147,7 +147,7 @@ class InputValidationTests(TestCase):
         job = JobPosting.objects.create(owner=self.user, title="t", description="d")
         app = Application.objects.create(job=job, user=self.user)
         response = self.client.post(
-            reverse("core:application_edit", args=[app.pk]),
+            reverse("core:application_edit", args=[app.uid]),
             {"tailored_summary": "ok", "cover_letter": "x" * 20_001},
         )
         self.assertEqual(response.status_code, 200)
@@ -163,7 +163,7 @@ class CsrfAndAnonymousTests(TestCase):
         client = Client(enforce_csrf_checks=True)
         client.force_login(user)
         response = client.post(
-            reverse("core:application_status", args=[app.pk]), {"status": "ready"}
+            reverse("core:application_status", args=[app.uid]), {"status": "ready"}
         )
         self.assertEqual(response.status_code, 403)
 
@@ -208,11 +208,11 @@ class CsrfAndAnonymousTests(TestCase):
             reverse("core:dashboard"),
             reverse("core:profile"),
             reverse("core:job_new"),
-            reverse("core:application_detail", args=[app.pk]),
-            reverse("core:application_edit", args=[app.pk]),
-            reverse("core:application_delete", args=[app.pk]),
-            reverse("core:application_regenerate", args=[app.pk]),
-            reverse("core:application_status", args=[app.pk]),
+            reverse("core:application_detail", args=[app.uid]),
+            reverse("core:application_edit", args=[app.uid]),
+            reverse("core:application_delete", args=[app.uid]),
+            reverse("core:application_regenerate", args=[app.uid]),
+            reverse("core:application_status", args=[app.uid]),
         ]
         client = Client()
         for url in urls:

@@ -10,6 +10,8 @@ from django.core.validators import MaxValueValidator, MinValueValidator, URLVali
 from django.db import models
 from django.utils import timezone
 
+from core.ids import new_id
+
 # Only these schemes are accepted for a pasted source URL; the value is rendered
 # as a link, so javascript:/data: must never get through.
 HTTP_URL_VALIDATOR = URLValidator(schemes=["http", "https"])
@@ -36,8 +38,11 @@ class Profile(models.Model):
 
 
 class JobPosting(models.Model):
-    """A job posting pasted by the candidate. No scraping: postings arrive by paste."""
+    """A job posting pasted by the candidate (or published by a recruiter as an
+    offer). No scraping: postings arrive by paste. The public ID is a 25-char
+    Crockford base32 `uid`; the serial PK never appears in URLs."""
 
+    uid = models.CharField(max_length=25, unique=True, default=new_id, editable=False)
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="job_postings"
     )
@@ -73,6 +78,7 @@ class Application(models.Model):
         MISTRAL = "mistral", "Mistral"
         DEMO = "demo", "Demo"
 
+    uid = models.CharField(max_length=25, unique=True, default=new_id, editable=False)
     job = models.OneToOneField(JobPosting, on_delete=models.CASCADE, related_name="application")
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="applications"

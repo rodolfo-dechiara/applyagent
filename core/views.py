@@ -323,7 +323,7 @@ class JobCreateView(LoginRequiredMixin, FormView):
                 "Application package generated — review and edit it; nothing is "
                 "final until you say so.",
             )
-        return redirect("core:application_detail", pk=application.pk)
+        return redirect("core:application_detail", uid=application.uid)
 
 
 class JobBoardView(ListView):
@@ -357,10 +357,11 @@ class JobBoardDetailView(DetailView):
     cross-user ownership rule used for applications."""
 
     template_name = "core/job_board_detail.html"
+    pk_url_kwarg = "uid"
     context_object_name = "posting"
 
     def get_object(self, queryset: QuerySet[JobPosting] | None = None) -> JobPosting:
-        posting = get_object_or_404(JobPosting, pk=self.kwargs["pk"])
+        posting = get_object_or_404(JobPosting, uid=self.kwargs["uid"])
         if not posting.is_public and posting.owner != self.request.user:
             raise Http404
         return posting
@@ -377,7 +378,7 @@ class JobBoardApplyView(LoginRequiredMixin, View):
     off-limits to everyone but their owner (404)."""
 
     def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
-        posting = get_object_or_404(JobPosting, pk=kwargs["pk"])
+        posting = get_object_or_404(JobPosting, uid=kwargs["uid"])
         if not posting.is_public and posting.owner != request.user:
             raise Http404
         clone = JobPosting.objects.filter(
@@ -390,7 +391,7 @@ class JobBoardApplyView(LoginRequiredMixin, View):
             existing = Application.objects.filter(job=clone, user=request.user).first()
             if existing is not None:
                 messages.info(request, "You already have an application for this posting.")
-                return redirect("core:application_detail", pk=existing.pk)
+                return redirect("core:application_detail", uid=existing.uid)
         else:
             clone = JobPosting.objects.create(
                 owner=request.user,
@@ -411,17 +412,23 @@ class JobBoardApplyView(LoginRequiredMixin, View):
                 "Application package generated — review and edit it; nothing is "
                 "final until you say so.",
             )
-        return redirect("core:application_detail", pk=application.pk)
+        return redirect("core:application_detail", uid=application.uid)
 
 
 class ApplicationMixin(LoginRequiredMixin):
-    """Base for application views: everything is scoped to the owner (else 404)."""
+    """Base for application views: everything is scoped to the owner (else 404).
+    Objects are looked up by their public Crockford `uid` (URL kwarg "uid")."""
 
     model = Application
     request: HttpRequest  # set by View.setup() on every request
+    kwargs: dict[str, Any]  # set by View.setup() on every request
 
     def get_queryset(self) -> QuerySet[Application]:
         return Application.objects.filter(user=self.request.user).select_related("job")
+
+    def get_object(self, queryset: QuerySet[Application] | None = None) -> Application:
+        queryset = queryset if queryset is not None else self.get_queryset()
+        return get_object_or_404(queryset, uid=self.kwargs["uid"])
 
 
 class ApplicationDetailView(ApplicationMixin, DetailView):
@@ -429,6 +436,7 @@ class ApplicationDetailView(ApplicationMixin, DetailView):
 
     template_name = "core/application_detail.html"
     context_object_name = "application"
+    pk_url_kwarg = "uid"
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
@@ -442,7 +450,7 @@ class ApplicationRegenerateView(ApplicationMixin, View):
     HTMX gets the swapped package partial, others a redirect."""
 
     def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
-        application = get_object_or_404(self.get_queryset(), pk=kwargs["pk"])
+        application = get_object_or_404(self.get_queryset(), uid=kwargs["uid"])
         profile, _created = Profile.objects.get_or_create(user=request.user)
         try:
             package = generate_application_package(profile, application.job)
@@ -453,7 +461,7 @@ class ApplicationRegenerateView(ApplicationMixin, View):
             messages.success(request, "Package regenerated — review it again.")
         if request.headers.get("HX-Request") == "true":
             return render(request, "core/_package.html", {"application": application})
-        return redirect("core:application_detail", pk=application.pk)
+        return redirect("core:application_detail", uid=application.uid)
 
 
 class ApplicationEditView(ApplicationMixin, UpdateView):
@@ -462,9 +470,10 @@ class ApplicationEditView(ApplicationMixin, UpdateView):
     template_name = "core/application_form.html"
     form_class = ApplicationEditForm
     context_object_name = "application"
+    pk_url_kwarg = "uid"
 
     def get_success_url(self) -> str:
-        return str(reverse_lazy("core:application_detail", kwargs={"pk": self.object.pk}))
+        return str(reverse_lazy("core:application_detail", kwargs={"uid": self.object.uid}))
 
     def form_valid(self, form: ApplicationEditForm) -> HttpResponse:
         messages.success(self.request, "Review saved — this is your edit, not the agent's.")
@@ -475,16 +484,16 @@ class ApplicationStatusView(ApplicationMixin, View):
     """POST-only status transitions (GET is 405), validated against the choices."""
 
     def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
-        application = get_object_or_404(self.get_queryset(), pk=kwargs["pk"])
+        application = get_object_or_404(self.get_queryset(), uid=kwargs["uid"])
         new_status = request.POST.get("status", "")
         valid = {value for value, _label in Application.Status.choices}
         if new_status not in valid:
             messages.error(request, f"Unknown status: {new_status!r}.")
-            return redirect("core:application_detail", pk=application.pk)
+            return redirect("core:application_detail", uid=application.uid)
         application.status = new_status
         application.save(update_fields=["status", "updated_at"])
         messages.success(request, f"Status updated to {application.get_status_display()}.")
-        return redirect("core:application_detail", pk=application.pk)
+        return redirect("core:application_detail", uid=application.uid)
 
 
 class ApplicationDeleteView(ApplicationMixin, View):
@@ -493,11 +502,11 @@ class ApplicationDeleteView(ApplicationMixin, View):
     template_name = "core/application_confirm_delete.html"
 
     def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
-        application = get_object_or_404(self.get_queryset(), pk=kwargs["pk"])
+        application = get_object_or_404(self.get_queryset(), uid=kwargs["uid"])
         return render(request, self.template_name, {"application": application})
 
     def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
-        application = get_object_or_404(self.get_queryset(), pk=kwargs["pk"])
+        application = get_object_or_404(self.get_queryset(), uid=kwargs["uid"])
         job = application.job
         job.delete()  # cascades to the application
         messages.success(request, "Application and posting deleted.")

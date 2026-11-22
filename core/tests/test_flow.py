@@ -62,7 +62,7 @@ class FullLoopTests(TestCase):
         self.assertTrue(app.screening_answers)
         self.assertIsNotNone(app.match_score)
         self.assertIsNotNone(app.generated_at)
-        detail_url = reverse("core:application_detail", args=[app.pk])
+        detail_url = reverse("core:application_detail", args=[app.uid])
         self.assertEqual(response.redirect_chain[-1][0], detail_url)
 
         # 4. Application page renders the package.
@@ -73,7 +73,7 @@ class FullLoopTests(TestCase):
 
         # 5. HTMX regenerate returns 200 with the swapped partial.
         response = self.client.post(
-            reverse("core:application_regenerate", args=[app.pk]),
+            reverse("core:application_regenerate", args=[app.uid]),
             HTTP_HX_REQUEST="true",
         )
         self.assertEqual(response.status_code, 200)
@@ -82,7 +82,7 @@ class FullLoopTests(TestCase):
 
         # 6. The human review pass: edits save.
         response = self.client.post(
-            reverse("core:application_edit", args=[app.pk]),
+            reverse("core:application_edit", args=[app.uid]),
             {
                 "tailored_summary": "My edited summary.",
                 "cover_letter": "My edited letter.",
@@ -95,7 +95,7 @@ class FullLoopTests(TestCase):
 
         # 7. Status transitions work.
         response = self.client.post(
-            reverse("core:application_status", args=[app.pk]), {"status": "ready"}
+            reverse("core:application_status", args=[app.uid]), {"status": "ready"}
         )
         self.assertEqual(response.status_code, 302)
         app.refresh_from_db()
@@ -103,7 +103,7 @@ class FullLoopTests(TestCase):
 
         # 8. An unknown status is refused.
         response = self.client.post(
-            reverse("core:application_status", args=[app.pk]),
+            reverse("core:application_status", args=[app.uid]),
             {"status": "teleported"},
             follow=True,
         )
@@ -115,7 +115,7 @@ class FullLoopTests(TestCase):
 
         # 9. Delete removes the application and the posting too.
         job_pk = app.job.pk
-        response = self.client.post(reverse("core:application_delete", args=[app.pk]))
+        response = self.client.post(reverse("core:application_delete", args=[app.uid]))
         self.assertEqual(response.status_code, 302)
         self.assertFalse(Application.objects.filter(pk=app.pk).exists())
         self.assertFalse(JobPosting.objects.filter(pk=job_pk).exists())

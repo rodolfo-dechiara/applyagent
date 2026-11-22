@@ -161,28 +161,28 @@ class JobBoardDetailTests(TestCase):
         )
 
     def test_anonymous_gets_public_detail(self) -> None:
-        response = self.client.get(reverse("core:job_board_detail", args=[self.public_job.pk]))
+        response = self.client.get(reverse("core:job_board_detail", args=[self.public_job.uid]))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "core/job_board_detail.html")
         self.assertContains(response, "Full description of the public role.")
 
     def test_anonymous_gets_404_on_private_posting(self) -> None:
-        response = self.client.get(reverse("core:job_board_detail", args=[self.private_job.pk]))
+        response = self.client.get(reverse("core:job_board_detail", args=[self.private_job.uid]))
         self.assertEqual(response.status_code, 404)
 
     def test_other_user_gets_404_on_private_posting(self) -> None:
         self.client.force_login(self.other)
-        response = self.client.get(reverse("core:job_board_detail", args=[self.private_job.pk]))
+        response = self.client.get(reverse("core:job_board_detail", args=[self.private_job.uid]))
         self.assertEqual(response.status_code, 404)
 
     def test_owner_can_view_own_private_posting(self) -> None:
         self.client.force_login(self.owner)
-        response = self.client.get(reverse("core:job_board_detail", args=[self.private_job.pk]))
+        response = self.client.get(reverse("core:job_board_detail", args=[self.private_job.uid]))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Confidential description.")
 
     def test_missing_posting_is_404(self) -> None:
-        response = self.client.get(reverse("core:job_board_detail", args=[99999]))
+        response = self.client.get(reverse("core:job_board_detail", args=["0" * 24 + "0"]))
         self.assertEqual(response.status_code, 404)
 
 
@@ -217,7 +217,7 @@ class JobBoardApplyTests(TestCase):
         )
 
     def apply_url(self, job: JobPosting) -> str:
-        return reverse("core:job_board_apply", args=[job.pk])
+        return reverse("core:job_board_apply", args=[job.uid])
 
     def test_anonymous_post_redirects_to_login_and_creates_nothing(self) -> None:
         postings_before = JobPosting.objects.count()
@@ -236,7 +236,7 @@ class JobBoardApplyTests(TestCase):
         self.client.force_login(self.candidate)
         response = self.client.post(self.apply_url(self.public_job))
         application = Application.objects.get(user=self.candidate)
-        self.assertRedirects(response, reverse("core:application_detail", args=[application.pk]))
+        self.assertRedirects(response, reverse("core:application_detail", args=[application.uid]))
         # The candidate gets their own private copy of the posting.
         clone = application.job
         self.assertEqual(clone.owner, self.candidate)
@@ -263,7 +263,7 @@ class JobBoardApplyTests(TestCase):
             1,
         )
         application = Application.objects.get(user=self.candidate)
-        self.assertRedirects(response, reverse("core:application_detail", args=[application.pk]))
+        self.assertRedirects(response, reverse("core:application_detail", args=[application.uid]))
 
     def test_other_user_cannot_apply_to_private_posting(self) -> None:
         self.client.force_login(self.candidate)
@@ -273,11 +273,11 @@ class JobBoardApplyTests(TestCase):
 
     def test_detail_page_has_apply_form_for_logged_in_user(self) -> None:
         self.client.force_login(self.candidate)
-        response = self.client.get(reverse("core:job_board_detail", args=[self.public_job.pk]))
+        response = self.client.get(reverse("core:job_board_detail", args=[self.public_job.uid]))
         self.assertContains(response, f'action="{self.apply_url(self.public_job)}"')
 
     def test_detail_page_invites_anonymous_to_log_in(self) -> None:
-        response = self.client.get(reverse("core:job_board_detail", args=[self.public_job.pk]))
+        response = self.client.get(reverse("core:job_board_detail", args=[self.public_job.uid]))
         self.assertContains(response, reverse("login"))
 
 

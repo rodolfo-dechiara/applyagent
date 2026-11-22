@@ -31,7 +31,7 @@
           class="rounded-2xl border border-slate-200/70 bg-white/80 p-4 shadow-md shadow-slate-900/5 backdrop-blur transition hover:-translate-y-0.5 hover:shadow-lg"
         >
           <a
-            href="{% url 'core:application_detail' pk=application.pk %}"
+            href="{% url 'core:application_detail' uid=application.uid %}"
             class="bg-gradient-to-r from-indigo-700 to-violet-700 bg-clip-text font-bold text-transparent hover:underline"
             >{{ application.job.title }}</a
           >

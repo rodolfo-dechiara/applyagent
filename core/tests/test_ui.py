@@ -82,7 +82,7 @@ class ModernUiTests(TestCase):
         job = JobPosting.objects.create(owner=user, title="Django developer", description="d")
         app = Application.objects.create(job=job, user=user)
         self.client.force_login(user)
-        response = self.client.get(reverse("core:application_detail", args=[app.pk]))
+        response = self.client.get(reverse("core:application_detail", args=[app.uid]))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "bg-gradient-to-r")
         self.assertContains(response, 'id="package"')

@@ -84,7 +84,7 @@ class DashboardTests(ViewTestCase):
         self.assertContains(response, "Django developer")
         self.assertContains(response, "Acme Corp")
         self.assertContains(response, "Draft")
-        self.assertContains(response, reverse("core:application_detail", args=[app.pk]))
+        self.assertContains(response, reverse("core:application_detail", args=[app.uid]))
 
 
 class RegisterAndLoginTests(TestCase):
@@ -193,7 +193,7 @@ class JobPasteTests(ViewTestCase):
         job = JobPosting.objects.get(title="Django developer")
         app = Application.objects.get(job=job)
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response["Location"], reverse("core:application_detail", args=[app.pk]))
+        self.assertEqual(response["Location"], reverse("core:application_detail", args=[app.uid]))
         self.assertEqual(job.owner, self.user)
         self.assertEqual(app.user, self.user)
         self.assertEqual(app.status, Application.Status.DRAFT)
@@ -232,7 +232,7 @@ class JobPasteTests(ViewTestCase):
 class ApplicationDetailTests(ViewTestCase):
     def test_detail_renders_all_package_sections(self) -> None:
         app = self.make_application()
-        response = self.client.get(reverse("core:application_detail", args=[app.pk]))
+        response = self.client.get(reverse("core:application_detail", args=[app.uid]))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Django developer")
         self.assertContains(response, "Acme Corp")
@@ -249,7 +249,7 @@ class ApplicationDetailTests(ViewTestCase):
 
     def test_detail_shows_status_buttons_for_every_status_except_current(self) -> None:
         app = self.make_application()
-        response = self.client.get(reverse("core:application_detail", args=[app.pk]))
+        response = self.client.get(reverse("core:application_detail", args=[app.uid]))
         for value, _label in Application.Status.choices:
             if value == app.status:
                 self.assertNotContains(response, f'value="{value}"')
@@ -258,10 +258,10 @@ class ApplicationDetailTests(ViewTestCase):
 
     def test_detail_has_edit_delete_regenerate_links(self) -> None:
         app = self.make_application()
-        response = self.client.get(reverse("core:application_detail", args=[app.pk]))
-        self.assertContains(response, reverse("core:application_edit", args=[app.pk]))
-        self.assertContains(response, reverse("core:application_delete", args=[app.pk]))
-        self.assertContains(response, reverse("core:application_regenerate", args=[app.pk]))
+        response = self.client.get(reverse("core:application_detail", args=[app.uid]))
+        self.assertContains(response, reverse("core:application_edit", args=[app.uid]))
+        self.assertContains(response, reverse("core:application_delete", args=[app.uid]))
+        self.assertContains(response, reverse("core:application_regenerate", args=[app.uid]))
 
 
 @override_settings(MISTRAL_API_KEY=None)
@@ -270,7 +270,7 @@ class RegenerateTests(ViewTestCase):
         app = self.make_application()
         old_generated_at = app.generated_at
         response = self.client.post(
-            reverse("core:application_regenerate", args=[app.pk]),
+            reverse("core:application_regenerate", args=[app.uid]),
             HTTP_HX_REQUEST="true",
         )
         self.assertEqual(response.status_code, 200)
@@ -282,20 +282,20 @@ class RegenerateTests(ViewTestCase):
 
     def test_plain_post_redirects_to_detail(self) -> None:
         app = self.make_application()
-        response = self.client.post(reverse("core:application_regenerate", args=[app.pk]))
+        response = self.client.post(reverse("core:application_regenerate", args=[app.uid]))
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response["Location"], reverse("core:application_detail", args=[app.pk]))
+        self.assertEqual(response["Location"], reverse("core:application_detail", args=[app.uid]))
 
     def test_get_is_not_allowed(self) -> None:
         app = self.make_application()
-        response = self.client.get(reverse("core:application_regenerate", args=[app.pk]))
+        response = self.client.get(reverse("core:application_regenerate", args=[app.uid]))
         self.assertEqual(response.status_code, 405)
 
 
 class EditTests(ViewTestCase):
     def test_get_shows_current_values(self) -> None:
         app = self.make_application()
-        response = self.client.get(reverse("core:application_edit", args=[app.pk]))
+        response = self.client.get(reverse("core:application_edit", args=[app.uid]))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "DEMO OUTPUT: summary")
         self.assertContains(response, "DEMO OUTPUT: letter")
@@ -303,14 +303,14 @@ class EditTests(ViewTestCase):
     def test_post_saves_edited_summary_and_letter(self) -> None:
         app = self.make_application()
         response = self.client.post(
-            reverse("core:application_edit", args=[app.pk]),
+            reverse("core:application_edit", args=[app.uid]),
             {
                 "tailored_summary": "Human-edited summary.",
                 "cover_letter": "Human-edited letter.",
             },
         )
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response["Location"], reverse("core:application_detail", args=[app.pk]))
+        self.assertEqual(response["Location"], reverse("core:application_detail", args=[app.uid]))
         app.refresh_from_db()
         self.assertEqual(app.tailored_summary, "Human-edited summary.")
         self.assertEqual(app.cover_letter, "Human-edited letter.")
@@ -326,7 +326,7 @@ class StatusTests(ViewTestCase):
             if value == app.status:
                 continue
             response = self.client.post(
-                reverse("core:application_status", args=[app.pk]), {"status": value}
+                reverse("core:application_status", args=[app.uid]), {"status": value}
             )
             self.assertEqual(response.status_code, 302)
             app.refresh_from_db()
@@ -335,7 +335,7 @@ class StatusTests(ViewTestCase):
     def test_unknown_status_is_refused_with_message(self) -> None:
         app = self.make_application()
         response = self.client.post(
-            reverse("core:application_status", args=[app.pk]),
+            reverse("core:application_status", args=[app.uid]),
             {"status": "bogus"},
             follow=True,
         )
@@ -347,21 +347,21 @@ class StatusTests(ViewTestCase):
 
     def test_get_is_not_allowed(self) -> None:
         app = self.make_application()
-        response = self.client.get(reverse("core:application_status", args=[app.pk]))
+        response = self.client.get(reverse("core:application_status", args=[app.uid]))
         self.assertEqual(response.status_code, 405)
 
 
 class DeleteTests(ViewTestCase):
     def test_get_shows_confirmation(self) -> None:
         app = self.make_application()
-        response = self.client.get(reverse("core:application_delete", args=[app.pk]))
+        response = self.client.get(reverse("core:application_delete", args=[app.uid]))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Django developer")
 
     def test_post_deletes_application_and_posting(self) -> None:
         app = self.make_application()
         job_pk = app.job.pk
-        response = self.client.post(reverse("core:application_delete", args=[app.pk]))
+        response = self.client.post(reverse("core:application_delete", args=[app.uid]))
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response["Location"], reverse("core:dashboard"))
         self.assertFalse(Application.objects.filter(pk=app.pk).exists())

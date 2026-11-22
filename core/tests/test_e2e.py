@@ -60,7 +60,7 @@ def fill_profile_and_paste_job(page: Page, base_url: str) -> None:
     page.fill("input[name='company']", "Acme Corp")
     page.fill("textarea[name='description']", "Build APIs with Django, Python and SQL.")
     page.fill("input[name='source_url']", "https://jobs.example.com/1")
-    submit_and_wait(page, r"/applications/\d+/$")
+    submit_and_wait(page, r"/applications/[0-9A-HJKMNP-TV-Z*~$@+]{25}/$")
     page.wait_for_selector("section#package")
 
 
@@ -122,7 +122,7 @@ class EndToEndTests(LiveServerTestCase):
             page.wait_for_url("**/edit/")
             page.fill("textarea[name='tailored_summary']", "My edited summary.")
             page.fill("textarea[name='cover_letter']", "My edited letter.")
-            submit_and_wait(page, r"/applications/\d+/$")
+            submit_and_wait(page, r"/applications/[0-9A-HJKMNP-TV-Z*~$@+]{25}/$")
             page.wait_for_selector("text=My edited summary.")
 
             # Status transition button.
@@ -215,11 +215,11 @@ class EndToEndTests(LiveServerTestCase):
 
             with page.expect_navigation(wait_until="domcontentloaded"):
                 page.locator("main a", has_text="Senior Backend Engineer").first.click()
-            assert re.search(r"/jobs/\d+/$", page.url), page.url
+            assert re.search(r"/jobs/[0-9A-HJKMNP-TV-Z*~$@+]{25}/$", page.url), page.url
             assert_no_horizontal_overflow(page)
 
             # POST the apply form -> own application page with a demo package.
-            submit_and_wait(page, r"/applications/\d+/$")
+            submit_and_wait(page, r"/applications/[0-9A-HJKMNP-TV-Z*~$@+]{25}/$")
             page.wait_for_selector("section#package >> text=DEMO OUTPUT")
             assert_no_horizontal_overflow(page)
 

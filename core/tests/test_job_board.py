@@ -271,10 +271,13 @@ class JobBoardApplyTests(TestCase):
         self.assertEqual(response.status_code, 404)
         self.assertEqual(Application.objects.count(), 0)
 
-    def test_detail_page_has_apply_form_for_logged_in_user(self) -> None:
+    def test_detail_page_has_insight_skeleton_for_logged_in_user(self) -> None:
+        # The Apply form itself arrives via HTMX from the insight endpoint.
         self.client.force_login(self.candidate)
         response = self.client.get(reverse("core:job_board_detail", args=[self.public_job.uid]))
-        self.assertContains(response, f'action="{self.apply_url(self.public_job)}"')
+        self.assertContains(
+            response, f'hx-get="{reverse("core:job_insight", args=[self.public_job.uid])}"'
+        )
 
     def test_detail_page_invites_anonymous_to_log_in(self) -> None:
         response = self.client.get(reverse("core:job_board_detail", args=[self.public_job.uid]))

@@ -51,6 +51,17 @@
                 >source</a
               >
             {% endif %}
+            {% if user.is_authenticated %}
+              <span
+                id="score-{{ posting.uid }}"
+                class="skeleton inline-block h-6 w-32 rounded-full"
+                hx-get="{% url 'core:job_score' uid=posting.uid %}"
+                hx-trigger="load delay:600ms"
+                hx-swap="outerHTML"
+              ></span>
+            {% else %}
+              <span class="text-xs text-slate-400">🔒 Log in to see your AI match score</span>
+            {% endif %}
           </div>
         </li>
       {% endfor %}

@@ -148,6 +148,13 @@ def _demo_score(profile: Profile, job: JobPosting) -> int:
     return max(0, min(100, 40 + 10 * hits))
 
 
+def quick_score(profile: Profile, job: JobPosting) -> int:
+    """Fast heuristic match score for the job-board badges (both demo and
+    Mistral mode — no LLM call per row). The full agent-drafted insight with
+    reasons and red flags is generated on the posting detail page instead."""
+    return _demo_score(profile, job)
+
+
 def _demo_package(profile: Profile, job: JobPosting) -> ApplicationPackage:
     """Deterministic, clearly-marked placeholder package used when no API key is set."""
     score = _demo_score(profile, job)

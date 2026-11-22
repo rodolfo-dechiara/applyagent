@@ -19,7 +19,12 @@ from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.generic import DetailView, FormView, ListView, TemplateView, UpdateView, View
 
-from agent.service import ApplicationPackage, GenerationError, generate_application_package
+from agent.service import (
+    ApplicationPackage,
+    GenerationError,
+    generate_application_package,
+    quick_score,
+)
 from core.demo_data import ensure_demo_jobs
 from core.forms import (
     ApplicationEditForm,
@@ -37,7 +42,7 @@ from core.models import (
     JobPosting,
     Profile,
 )
-from core.ratelimit import rate_limited
+from core.ratelimit import is_allowed, rate_limited
 from core.security import client_ip
 from core.security import logger as security_logger
 
@@ -374,10 +379,56 @@ class JobBoardDetailView(DetailView):
     context_object_name = "posting"
 
     def get_object(self, queryset: QuerySet[JobPosting] | None = None) -> JobPosting:
-        posting = get_object_or_404(JobPosting, uid=self.kwargs["uid"])
-        if not posting.is_public and posting.owner != self.request.user:
-            raise Http404
-        return posting
+        return _board_posting_for(self.request, self.kwargs["uid"])
+
+
+def _board_posting_for(request: HttpRequest, uid: str) -> JobPosting:
+    """Board posting visible to this request: public ones, plus the owner's own."""
+    posting = get_object_or_404(JobPosting, uid=uid)
+    if not posting.is_public and posting.owner != request.user:
+        raise Http404
+    return posting
+
+
+class JobScoreView(LoginRequiredMixin, View):
+    """GET /jobs/<uid>/score/ — the AI match badge for the logged-in candidate.
+    Loaded by HTMX after a skeleton shimmer on the board. Authenticated only."""
+
+    def get(self, request: HttpRequest, uid: str, *args: Any, **kwargs: Any) -> HttpResponse:
+        posting = _board_posting_for(request, uid)
+        profile, _created = Profile.objects.get_or_create(user=request.user)
+        score = quick_score(profile, posting)
+        return render(
+            request,
+            "core/_score_badge.html",
+            {"uid": uid, "score": score, "mode": "demo" if not settings.MISTRAL_API_KEY else "ai"},
+        )
+
+
+class JobInsightView(LoginRequiredMixin, View):
+    """GET /jobs/<uid>/insight/ — the detailed AI insight (score, reasons, red
+    flags, screening answers count) plus the shining Apply button. Replaces the
+    skeleton on the posting detail page. Rate-limited per IP (it may call the
+    LLM in Mistral mode)."""
+
+    def get(self, request: HttpRequest, uid: str, *args: Any, **kwargs: Any) -> HttpResponse:
+        if not is_allowed("insight", client_ip(request), 30, 3600):
+            return HttpResponse("Too many requests — please try again later.", status=429)
+        posting = _board_posting_for(request, uid)
+        profile, _created = Profile.objects.get_or_create(user=request.user)
+        try:
+            package = generate_application_package(profile, posting)
+        except GenerationError as exc:
+            return render(
+                request,
+                "core/_insight.html",
+                {"uid": uid, "posting": posting, "error": str(exc)},
+            )
+        return render(
+            request,
+            "core/_insight.html",
+            {"uid": uid, "posting": posting, "package": package},
+        )
 
 
 @method_decorator(rate_limited("job_apply", 20, 3600), name="dispatch")
@@ -391,9 +442,7 @@ class JobBoardApplyView(LoginRequiredMixin, View):
     off-limits to everyone but their owner (404)."""
 
     def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
-        posting = get_object_or_404(JobPosting, uid=kwargs["uid"])
-        if not posting.is_public and posting.owner != request.user:
-            raise Http404
+        posting = _board_posting_for(request, kwargs["uid"])
         clone = JobPosting.objects.filter(
             owner=request.user,
             title=posting.title,

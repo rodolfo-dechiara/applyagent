@@ -26,19 +26,14 @@
 
     <div class="mt-6 border-t border-slate-100 pt-4">
       {% if user.is_authenticated %}
-        <form method="post" action="{% url 'core:job_board_apply' uid=posting.uid %}">
-          {% csrf_token %}
-          <button
-            type="submit"
-            class="rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-600/25 transition hover:brightness-110"
-          >
-            Build my application for this job
-          </button>
-          <p class="mt-2 text-xs text-slate-500">
-            The agent drafts the package from your profile; you review and edit
-            before anything counts. Nothing is submitted anywhere.
-          </p>
-        </form>
+        <!-- Detailed AI insight + Apply button load here after a skeleton shimmer. -->
+        <div
+          id="insight-{{ posting.uid }}"
+          class="skeleton h-56 w-full rounded-2xl"
+          hx-get="{% url 'core:job_insight' uid=posting.uid %}"
+          hx-trigger="load delay:900ms"
+          hx-swap="outerHTML"
+        ></div>
       {% else %}
         <p class="text-sm text-slate-600">
           <a href="{% url 'login' %}?next={{ request.path }}" class="font-semibold text-indigo-600 hover:underline">Log in</a>

@@ -14,6 +14,8 @@ from core.views import (
     JobBoardDetailView,
     JobBoardView,
     JobCreateView,
+    JobInsightView,
+    JobScoreView,
     LandingView,
     ProfileView,
 )
@@ -28,6 +30,8 @@ urlpatterns: list[URLPattern] = [
     path("jobs/", JobBoardView.as_view(), name="job_board"),
     path("jobs/<uid:uid>/", JobBoardDetailView.as_view(), name="job_board_detail"),
     path("jobs/<uid:uid>/apply/", JobBoardApplyView.as_view(), name="job_board_apply"),
+    path("jobs/<uid:uid>/score/", JobScoreView.as_view(), name="job_score"),
+    path("jobs/<uid:uid>/insight/", JobInsightView.as_view(), name="job_insight"),
     path("jobs/new/", JobCreateView.as_view(), name="job_new"),
     path("applications/<uid:uid>/", ApplicationDetailView.as_view(), name="application_detail"),
     path(

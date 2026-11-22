@@ -3,6 +3,7 @@ publish job offers (public postings, no application generated), candidates
 paste postings and get packages. Red-first."""
 
 from django.contrib.auth.models import User
+from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
@@ -12,6 +13,9 @@ from core.tests.utils import PASSWORD, register_and_verify
 
 @override_settings(MISTRAL_API_KEY=None)
 class RoleTests(TestCase):
+    def setUp(self) -> None:
+        cache.clear()  # register is rate-limited per IP; don't share the budget
+
     def test_register_form_offers_candidate_and_recruiter_roles(self) -> None:
         response = self.client.get(reverse("register"))
         self.assertContains(response, "candidate")

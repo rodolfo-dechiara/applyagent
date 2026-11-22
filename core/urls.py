@@ -8,6 +8,7 @@ from core.views import (
     ApplicationDetailView,
     ApplicationEditView,
     ApplicationRegenerateView,
+    ApplicationSendView,
     ApplicationStatusView,
     DashboardView,
     JobBoardApplyView,
@@ -46,4 +47,5 @@ urlpatterns: list[URLPattern] = [
     path(
         "applications/<uid:uid>/status/", ApplicationStatusView.as_view(), name="application_status"
     ),
+    path("applications/<uid:uid>/send/", ApplicationSendView.as_view(), name="application_send"),
 ]

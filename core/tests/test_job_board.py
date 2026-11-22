@@ -248,10 +248,12 @@ class JobBoardApplyTests(TestCase):
         self.assertEqual(application.agent_mode, "demo")
         self.assertIn("DEMO OUTPUT", application.tailored_summary)
         self.assertIn("DEMO OUTPUT", application.cover_letter)
-        # The original public posting is untouched and still public.
+        # The original public posting is untouched and still public, and the
+        # application remembers it as its source (for recruiter notification).
         self.public_job.refresh_from_db()
         self.assertTrue(self.public_job.is_public)
         self.assertEqual(self.public_job.owner, self.owner)
+        self.assertEqual(application.source_posting, self.public_job)
 
     def test_second_apply_does_not_duplicate(self) -> None:
         self.client.force_login(self.candidate)

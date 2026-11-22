@@ -97,6 +97,15 @@ class Application(models.Model):
 
     uid = models.CharField(max_length=25, unique=True, default=new_id, editable=False)
     job = models.OneToOneField(JobPosting, on_delete=models.CASCADE, related_name="application")
+    # The public board offer this application was created from (None when the
+    # candidate pasted the posting themselves). Used to notify the recruiter.
+    source_posting = models.ForeignKey(
+        JobPosting,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="applications_from",
+    )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="applications"
     )

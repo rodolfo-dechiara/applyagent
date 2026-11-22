@@ -39,6 +39,21 @@
     </div>
   </div>
 
+  {% if application.status != "submitted" %}
+    <form method="post" action="{% url 'core:application_send' uid=application.uid %}" class="mt-4">
+      {% csrf_token %}
+      <button
+        type="submit"
+        class="rounded-xl bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-indigo-600/30 transition hover:brightness-110"
+      >
+        Approve &amp; send to recruiter <span class="shine">✨</span>
+      </button>
+      <p class="mt-1 text-xs text-slate-500">
+        Approving sends the presentation below to the recruiter with your CV attached as a PDF.
+      </p>
+    </form>
+  {% endif %}
+
   <div class="mt-5 flex flex-wrap gap-2 text-sm">
     <button
       type="button"

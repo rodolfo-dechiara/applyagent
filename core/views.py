@@ -1,6 +1,7 @@
 """Server-rendered views for the core app. All application views are login-only
 and filter by request.user, so another user's application is a 404."""
 
+import re
 from typing import Any
 
 from django.conf import settings
@@ -9,7 +10,7 @@ from django.contrib.auth import login
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.models import AbstractBaseUser, AnonymousUser, User
-from django.core.mail import send_mail
+from django.core.mail import EmailMessage, send_mail
 from django.db.models import QuerySet
 from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -42,6 +43,7 @@ from core.models import (
     JobPosting,
     Profile,
 )
+from core.pdf import make_cv_pdf
 from core.ratelimit import is_allowed, rate_limited
 from core.security import client_ip
 from core.security import logger as security_logger
@@ -464,6 +466,8 @@ class JobBoardApplyView(LoginRequiredMixin, View):
                 is_public=False,
             )
         application, error = create_application_with_package(request.user, clone)
+        application.source_posting = posting  # remember the board offer (recruiter)
+        application.save(update_fields=["source_posting"])
         if error is not None:
             messages.error(
                 request, f"Generation failed: {error} You can regenerate from the application page."
@@ -556,6 +560,80 @@ class ApplicationStatusView(ApplicationMixin, View):
         application.save(update_fields=["status", "updated_at"])
         messages.success(request, f"Status updated to {application.get_status_display()}.")
         return redirect("core:application_detail", uid=application.uid)
+
+
+class ApplicationSendView(ApplicationMixin, View):
+    """POST-only approve-and-send: the candidate approved the preview, so the
+    CV is rendered to a PDF and the message (presentation = tailored summary +
+    cover letter + score/reasons/red flags) is emailed to the recruiter who
+    published the posting, with the PDF attached. Status becomes "submitted".
+    If the posting was pasted by a candidate (no recruiter), it is only marked
+    submitted locally. A failed email does NOT mark it submitted."""
+
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        application = get_object_or_404(self.get_queryset(), uid=kwargs["uid"])
+        detail = redirect("core:application_detail", uid=application.uid)
+        if application.status == Application.Status.SUBMITTED:
+            messages.error(request, "Already submitted — you can't send it twice.")
+            return detail
+        origin = application.source_posting or application.job
+        owner = origin.owner
+        owner_account, _created = Account.objects.get_or_create(user=owner)
+        profile, _created = Profile.objects.get_or_create(user=request.user)
+        if owner_account.role == Account.Role.RECRUITER and owner.email:
+            pdf = make_cv_pdf(profile)
+            username = request.user.get_username()
+            safe_name = re.sub(r"[^A-Za-z0-9_.-]", "_", username)
+            subject = f"New application for {origin.title} at {origin.company} — {username}"
+            score = application.match_score
+            body = (
+                f"Hi {owner.get_username()},\n\n"
+                f"{username} applied to your posting "
+                f'"{origin.title}" at {origin.company}.\n\n'
+                f"--- Tailored summary ---\n{application.tailored_summary}\n\n"
+                f"--- Cover letter ---\n{application.cover_letter}\n\n"
+                f"--- Match score: {score}/100 ---\n"
+                + "\n".join(f"- {reason}" for reason in application.match_reasons)
+                + "\n\n--- Red flags ---\n"
+                + "\n".join(f"- {flag}" for flag in application.red_flags)
+                + "\n\nThe candidate's CV is attached as a PDF.\n"
+            )
+            message = EmailMessage(subject, body, settings.DEFAULT_FROM_EMAIL, [owner.email])
+            message.attach(f"CV_{safe_name}.pdf", pdf, "application/pdf")
+            try:
+                message.send()
+            except Exception:
+                security_logger.exception(
+                    "application_send_failed application=%s ip=%s",
+                    application.uid,
+                    client_ip(request),
+                )
+                messages.error(
+                    request,
+                    "Sending failed (email error) — the application was NOT submitted. "
+                    "You can try again.",
+                )
+                return detail
+            security_logger.info(
+                "application_sent application=%s to=%s ip=%s",
+                application.uid,
+                owner.username,
+                client_ip(request),
+            )
+            application.status = Application.Status.SUBMITTED
+            application.save(update_fields=["status", "updated_at"])
+            messages.success(
+                request, f"Sent to {owner.email} with your CV (PDF) attached. Good luck! ✨"
+            )
+        else:
+            application.status = Application.Status.SUBMITTED
+            application.save(update_fields=["status", "updated_at"])
+            messages.info(
+                request,
+                "Marked as submitted — this posting was pasted by a candidate, "
+                "so there is no recruiter to notify.",
+            )
+        return detail
 
 
 class ApplicationDeleteView(ApplicationMixin, View):

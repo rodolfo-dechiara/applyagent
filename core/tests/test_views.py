@@ -109,7 +109,12 @@ class RegisterAndLoginTests(TestCase):
     def test_register_rejects_mismatched_passwords(self) -> None:
         response = self.client.post(
             reverse("register"),
-            {"username": "newbie", "password1": PASSWORD, "password2": "Different!Pass1"},
+            {
+                "username": "newbie",
+                "password1": PASSWORD,
+                "password2": "Different!Pass1",
+                "role": "candidate",
+            },
         )
         self.assertEqual(response.status_code, 200)
         self.assertFalse(User.objects.filter(username="newbie").exists())

@@ -31,6 +31,7 @@ from core.forms import (
 )
 from core.models import (
     EMAIL_VERIFICATION_TTL,
+    Account,
     Application,
     EmailVerification,
     JobPosting,
@@ -118,6 +119,7 @@ class RegisterView(FormView):
         user = form.save(commit=False)
         user.is_active = False
         user.save()
+        Account.objects.create(user=user, role=form.cleaned_data["role"])
         sent = send_verification_email(self.request, user)
         security_logger.info(
             "register user=%s ip=%s (unverified)", user.username, client_ip(self.request)
@@ -310,6 +312,17 @@ class JobCreateView(LoginRequiredMixin, FormView):
     def form_valid(self, form: JobPostingForm) -> HttpResponse:
         job = form.save(commit=False)
         job.owner = self.request.user
+        account, _created = Account.objects.get_or_create(user=self.request.user)
+        if account.role == Account.Role.RECRUITER:
+            # Recruiters publish job offers: public by default, and no
+            # application package is generated for their own posting.
+            job.is_public = True
+            job.save()
+            messages.success(
+                self.request,
+                "Job offer published on the public board — candidates can now apply to it.",
+            )
+            return redirect("core:job_board_detail", uid=job.uid)
         job.save()
         application, error = create_application_with_package(self.request.user, job)
         if error is not None:

@@ -66,6 +66,7 @@ class RegistrationVerificationTests(TestCase):
                 "username": "newbie",
                 "email": "newbie@example.com",
                 "password1": PASSWORD,
+                "role": "candidate",
                 "password2": PASSWORD,
             },
             follow=True,
@@ -79,7 +80,12 @@ class RegistrationVerificationTests(TestCase):
     def test_register_requires_email(self) -> None:
         response = self.client.post(
             reverse("register"),
-            {"username": "newbie", "password1": PASSWORD, "password2": PASSWORD},
+            {
+                "username": "newbie",
+                "password1": PASSWORD,
+                "password2": PASSWORD,
+                "role": "candidate",
+            },
         )
         self.assertEqual(response.status_code, 200)
         self.assertFalse(User.objects.filter(username="newbie").exists())

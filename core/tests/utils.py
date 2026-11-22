@@ -15,6 +15,7 @@ def register(
     username: str = "alice",
     email: str | None = None,
     password: str = PASSWORD,
+    role: str = "candidate",
 ):
     """POST the registration form (email is required since verification exists)."""
     return client.post(
@@ -24,6 +25,7 @@ def register(
             "email": email if email is not None else f"{username}@example.com",
             "password1": password,
             "password2": password,
+            "role": role,
         },
     )
 

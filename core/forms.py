@@ -7,7 +7,7 @@ from django.contrib.auth.forms import AuthenticationForm, UserCreationForm, User
 from django.contrib.auth.models import User
 from django.core.validators import MaxLengthValidator
 
-from core.models import Application, JobPosting, Profile
+from core.models import Account, Application, JobPosting, Profile
 
 INPUT_CLASS = (
     "w-full rounded-lg border border-slate-300 bg-white/90 p-2.5 text-sm shadow-sm transition "
@@ -46,9 +46,16 @@ class LoginForm(AuthenticationForm):
 
 
 class RegisterForm(UserCreationForm):
-    """Registration requires an email: the account is unusable until verified."""
+    """Registration requires an email (verified before login) and a role:
+    candidate (applies for jobs) or recruiter (publishes job offers)."""
 
     email = forms.EmailField(required=True)
+    role = forms.ChoiceField(
+        choices=Account.Role.choices,
+        initial=Account.Role.CANDIDATE,
+        label="I am a",
+        help_text="Candidates get AI-drafted applications; recruiters publish job offers.",
+    )
 
     class Meta:
         model = User

@@ -19,6 +19,23 @@ HTTP_URL_VALIDATOR = URLValidator(schemes=["http", "https"])
 EMAIL_VERIFICATION_TTL = timedelta(hours=24)
 
 
+class Account(models.Model):
+    """The user's role: candidate (applies for jobs) or recruiter (publishes
+    job offers). Created at registration; existing users default to candidate."""
+
+    class Role(models.TextChoices):
+        CANDIDATE = "candidate", "Candidate"
+        RECRUITER = "recruiter", "Recruiter"
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="account"
+    )
+    role = models.CharField(max_length=20, choices=Role.choices, default=Role.CANDIDATE)
+
+    def __str__(self) -> str:
+        return f"{self.user.username} ({self.role})"
+
+
 class Profile(models.Model):
     """The candidate's one master profile. Exactly one per user."""
 
